@@ -1,1 +1,6 @@
-["archer.coffee", "tweet.coffee", "shipit.coffee"]
+[
+	"archer.coffee",
+	"tweet.coffee",
+	"shipit.coffee",
+	"good-night.coffee"
+]
