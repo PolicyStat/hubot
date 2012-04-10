@@ -2,5 +2,6 @@
 	"archer.coffee",
 	"tweet.coffee",
 	"shipit.coffee",
-	"good-night.coffee"
+	"good-night.coffee",
+	"jenkins.coffee"
 ]
