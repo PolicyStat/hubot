@@ -7,16 +7,39 @@
 #   HUBOT_JENKINS_AUTH: for authenticating the trigger request (user:password)
 #
 # jenkins build <job> - builds the specified Jenkins job
-# jenkins build <job> with <params> - builds the specified Jenkins job with parameters as key=value&key2=value2
+# jenkins build <issue_number>- builds the pstat_ticket job with the
+#   corresponding issue_<issue_number> branch
 # jenkins list - lists Jenkins jobs
+#
+# Forked to make building a pstat_ticket branch less verbose.
 #
 
 jenkinsBuild = (msg) ->
     url = process.env.HUBOT_JENKINS_URL
     job = msg.match[1]
-    params = msg.match[3]
 
-    path = if params then "#{url}/job/#{job}/buildWithParameters?#{params}" else "#{url}/job/#{job}/build"
+    path = "#{url}/job/#{job}/build"
+
+    req = msg.http(path)
+
+    if process.env.HUBOT_JENKINS_AUTH
+      auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
+      req.headers Authorization: "Basic #{auth}"
+
+    req.header('Content-Length', 0)
+    req.post() (err, res, body) ->
+        if err
+          msg.send "Jenkins says: #{err}"
+        else if res.statusCode == 302
+          msg.send "Build started for #{job} #{res.headers.location}"
+        else
+          msg.send "Jenkins says: #{body}"
+
+jenkinsBuildIssue = (msg) ->
+    url = process.env.HUBOT_JENKINS_URL
+    issue = msg.match[1]
+
+    path = "#{url}/job/#{job}/buildWithParameters?ISSUE=#{issue}"
 
     req = msg.http(path)
 
@@ -50,20 +73,23 @@ jenkinsList = (msg) ->
           try
             content = JSON.parse(body)
             for job in content.jobs
-              state = if job.color == "red" then "FAIL" else "PASS"
+              state = if job.color != "blue" then "FAIL" else "PASS"
               response += "#{state} #{job.name}\n"
             msg.send response
           catch error
             msg.send error
 
 module.exports = (robot) ->
-  robot.respond /jenkins build ([\w\.\-_]+)( with (.+))?/i, (msg) ->
+  robot.respond /ci build ([\d_]+)/i, (msg) ->
+    jenkinsBuildIssue(msg)
+
+  robot.respond /ci build ([\w\.\-_]+)/i, (msg) ->
     jenkinsBuild(msg)
 
-  robot.respond /jenkins list/i, (msg) ->
+  robot.respond /ci list/i, (msg) ->
     jenkinsList(msg)
 
-  robot.jenkins = {
+  robot.ci = {
     list: jenkinsList,
     build: jenkinsBuild
   }
