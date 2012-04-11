@@ -7,7 +7,7 @@
 #   HUBOT_JENKINS_AUTH: for authenticating the trigger request (user:password)
 #
 # jenkins build <job> - builds the specified Jenkins job
-# jenkins build <issue_number>- builds the pstat_ticket job with the
+# jenkins issue <issue_number>- builds the pstat_ticket job with the
 #   corresponding issue_<issue_number> branch
 # jenkins list - lists Jenkins jobs
 #
@@ -39,7 +39,7 @@ jenkinsBuildIssue = (msg) ->
     url = process.env.HUBOT_JENKINS_URL
     issue = msg.match[1]
 
-    path = "#{url}/job/#{job}/buildWithParameters?ISSUE=#{issue}"
+    path = "#{url}/job/pstat_ticket/buildWithParameters?ISSUE=#{issue}"
 
     req = msg.http(path)
 
@@ -80,7 +80,7 @@ jenkinsList = (msg) ->
             msg.send error
 
 module.exports = (robot) ->
-  robot.respond /ci build ([\d_]+)/i, (msg) ->
+  robot.respond /ci issue ([\d_]+)/i, (msg) ->
     jenkinsBuildIssue(msg)
 
   robot.respond /ci build ([\w\.\-_]+)/i, (msg) ->
@@ -91,5 +91,6 @@ module.exports = (robot) ->
 
   robot.ci = {
     list: jenkinsList,
-    build: jenkinsBuild
+    build: jenkinsBuild,
+    issue: jenkinsBuildIssue,
   }
