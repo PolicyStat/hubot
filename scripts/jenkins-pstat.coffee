@@ -52,7 +52,7 @@ jenkinsBuildIssue = (msg) ->
         if err
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 302
-          msg.send "Build started for #{job} #{res.headers.location}"
+          msg.send "Build started for issue #{issue} #{res.headers.location}"
         else
           msg.send "Jenkins says: #{body}"
 
