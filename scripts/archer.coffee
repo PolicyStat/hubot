@@ -43,7 +43,7 @@ module.exports = (robot) ->
         # HTTP requests
         quotes = jQuery("dl").toArray()
       dialog = ''
-      quote = quotes[Math.floor(Math.random()*quotes.length)]
+      quote = quotes[Math.floor(Math.random()*quotes.length) - 1]
       dialog += jQuery(quote).text().trim() + "\n"
       msg.send dialog
     
