@@ -17,6 +17,8 @@ module.exports = (robot) ->
   unanswered_user = ''
   unanswered_count = 0
 
+  danger_zone_url = "http://www.youtube.com/watch?v=d3D7Y_ycSms"
+
   robot.hear /^benoit/i, (msg) ->
     msg.send "balls"
 
@@ -62,5 +64,10 @@ module.exports = (robot) ->
   robot.hear /^HUBOT!!!$/, (msg) ->
     if unanswered_user is msg.message.user and unanswered_count is 2
       msg.reply "WHAT?"
-      unanswered_user = ""
+      unanswered_count = 3
+
+  robot.hear /DANGER ZONE/, (msg) ->
+    if unanswered_user is msg.message.user and unanswered_count is 3
+      msg.send danger_zone_url
       unanswered_count = 0
+      unanswered_user = ""
