@@ -14,6 +14,8 @@ scraper = require 'scraper'
 
 module.exports = (robot) ->
   quotes = [] 
+  unanswered_user = ''
+  unanswered_count = 0
 
   robot.hear /^benoit/i, (msg) ->
     msg.send "balls"
@@ -47,3 +49,18 @@ module.exports = (robot) ->
       dialog += jQuery(quote).text().trim() + "\n"
       msg.send dialog
     
+  robot.hear /^Hubot\.$/, (msg) ->
+    # Facilitate a <Name>. <NAME>. <NAME>!!! WHAT? DANGER ZONE! convo
+
+    unanswered_user = msg.message.user
+    unanswered_count = 1
+
+  robot.hear /^HUBOT\.$/, (msg) ->
+    if unanswered_user is msg.message.user
+      unanswered_count = 2
+
+  robot.hear /^HUBOT!!!$/, (msg) ->
+    if unanswered_user is msg.message.user and unanswered_count is 2
+      msg.reply "WHAT?"
+      unanswered_user = ""
+      unanswered_count = 0
