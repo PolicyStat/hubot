@@ -13,6 +13,7 @@
 scraper = require 'scraper'
 
 module.exports = (robot) ->
+  quotes = [] 
 
   robot.hear /^benoit/i, (msg) ->
     msg.send "balls"
@@ -29,7 +30,7 @@ module.exports = (robot) ->
   robot.hear /archer/i, (msg) ->
 
     options = {
-       'uri': 'http://en.wikiquote.org/wiki/Archer_(TV_series)', 
+       'uri': 'http://en.wikiquote.org/wiki/Archer_(TV_series)',
        'headers': {
          'User-Agent': 'User-Agent: Archerbot for Hubot (+https://github.com/github/hubot-scripts)'
        }
@@ -37,7 +38,10 @@ module.exports = (robot) ->
 
     scraper options, (err, jQuery) ->
       throw err  if err
-      quotes = jQuery("dl").toArray()
+      if quotes.length is 0
+        # Cache the quotes on the robot object so we're not always performing
+        # HTTP requests
+        quotes = jQuery("dl").toArray()
       dialog = ''
       quote = quotes[Math.floor(Math.random()*quotes.length)]
       dialog += jQuery(quote).text().trim() + "\n"
