@@ -33,6 +33,10 @@ module.exports = (robot) ->
 
   robot.hear /archer/i, (msg) ->
 
+    # Don't listen to ourself. That's weird
+    if msg.message.user is robot.name
+      return
+
     options = {
        'uri': 'http://en.wikiquote.org/wiki/Archer_(TV_series)',
        'headers': {
