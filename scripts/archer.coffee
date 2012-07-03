@@ -28,8 +28,8 @@ module.exports = (robot) ->
   robot.hear /^sitting down/i, (msg) ->
     msg.reply "What?! At the table? Look, he thinks he's people!"
 
-  robot.hear /love/i, (msg) ->
-    msg.reply "And I love that I have an erection... that doesn't involve homeless people."
+  #robot.hear /love/i, (msg) ->
+    #msg.reply "And I love that I have an erection... that doesn't involve homeless people."
 
   robot.hear /archer/i, (msg) ->
 
