@@ -17,7 +17,7 @@
   "dependencies": {
     "hubot": "2.1.4",
     "hubot-scripts": ">=2.0.4",
-    "hubot-hipchat": ">=1.0.4",
+    "hubot-hipchat": ">=1.0.6",
 	"scraper": "0.0.9",
     "optparse": "1.0.3"
   }
