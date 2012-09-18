@@ -56,7 +56,6 @@ notifyOfDownstreamJobs = (msg, jobName) ->
         # Figure out the nextBuildNumber
         # TODO: Handle builds in the queue
         for downstreamProject in downstreamProjects
-          msg.send "Getting next build for #{downstreamProject.url}"
           path = "#{downstreamProject.url}api/json"
           req = msg.http(path)
           if process.env.HUBOT_JENKINS_AUTH
@@ -69,7 +68,7 @@ notifyOfDownstreamJobs = (msg, jobName) ->
               else if res.statusCode == 200
                 json = JSON.parse(body)
                 downstreamBuildLink = "#{json.url}#{json.nextBuildNumber}"
-                msg.send "Job will be: #{downstreamBuildLink}"
+                msg.send "#{json.displayName} will be: #{downstreamBuildLink}"
               else
                 msg.send "Jenkins status code: #{res.statusCode}"
 
