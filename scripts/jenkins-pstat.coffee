@@ -53,6 +53,15 @@ jenkinsBuildIssue = (msg) ->
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 302
           msg.send "Build started for issue #{issue} #{res.headers.location}"
+          # TODO:
+          # Determine the unittest and selenium job numbers that will be used
+          # based on jobs currently in the queue. Use that to predict the URLs
+          # for these respective jobs and post them to both Hipchat and the
+          # corresponding github pull request
+          # Future enhancement:
+          # Store the job numbers, who requested them and the issue number in memcached
+          # Use Heroku's cron job stuff to periodically check these things in Memcached and then post to the Github issue with the results.
+          # If they fail, also notify the requester in hipchat with the pull request link
         else
           msg.send "Jenkins says: #{body}"
 
