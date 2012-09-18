@@ -1,4 +1,5 @@
 [
 	"tweet.coffee",
-	"shipit.coffee"
+	"shipit.coffee",
+	"github-issue-link.coffee"
 ]

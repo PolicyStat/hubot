@@ -20,10 +20,11 @@
 
   "dependencies": {
     "hubot": "2.3.3",
-    "hubot-scripts": ">=2.0.4",
+    "hubot-scripts": "2.1.2",
     "hubot-hipchat": ">=1.0.6",
 	"scraper": "0.0.9",
-    "optparse": "1.0.3"
+    "optparse": "1.0.3",
+	"githubot": "0.3.0"
   }
 }
 
