@@ -6,10 +6,10 @@
 # The following variables are optional
 #   HUBOT_JENKINS_AUTH: for authenticating the trigger request (user:password)
 #
-# jenkins build <job> - builds the specified Jenkins job
-# jenkins issue <issue_number>- builds the pstat_ticket job with the
+# ci build <job> - builds the specified Jenkins job
+# ci issue <issue_number>- builds the pstat_ticket job with the
 #   corresponding issue_<issue_number> branch
-# jenkins list - lists Jenkins jobs
+# ci list - lists Jenkins jobs
 #
 # Forked to make building a pstat_ticket branch less verbose.
 #
@@ -35,45 +35,45 @@ jenkinsBuild = (msg) ->
         else
           msg.send "Jenkins says: #{body}"
 
-#getDownstreamBuildLinks = (jobName) ->
-#    url = process.env.HUBOT_JENKINS_URL
-#
-#    # First get the downstreamProjects that this build will trigger
-#    path = "#{url}/job/#{jobName}/api/json"
-#    req = msg.http(path)
-#    if process.env.HUBOT_JENKINS_AUTH
-#      auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
-#      req.headers Authorization: "Basic #{auth}"
-#
-#    downstreamProjects = {}
-#    req.header('Content-Length', 0)
-#    req.get() (err, res, body) ->
-#        if err
-#          msg.send "Jenkins says: #{err}"
-#        else if res.statusCode == 200
-#          json = JSON.parse(body)
-#          downstreamProjects = json.downstreamProjects
-#          msg.send "downstreamProjects #{downstreamProjects}"
-#
-#    # Figure out the nextBuildNumber
-#    # TODO: Handle builds in the queue
-#    downstreamBuildLinks = []
-#    for downstreamProject in downstreamProjects
-#      do (downstreamProject) ->
-#        path = "#{downstreamProject.url}api/json"
-#        req = msg.http(path)
-#        if process.env.HUBOT_JENKINS_AUTH
-#          auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
-#          req.headers Authorization: "Basic #{auth}"
-#        req.header('Content-Length', 0)
-#        req.get() (err, res, body) ->
-#            if err
-#              msg.send "Jenkins says: #{err}"
-#            else if res.statusCode == 200
-#              json = JSON.parse(body)
-#              downstreamBuildLinks.push("#{json.url}#{json.nextBuildNumber}")
-#
-#    return downstreamBuildLinks
+getDownstreamBuildLinks = (jobName) ->
+    url = process.env.HUBOT_JENKINS_URL
+
+    # First get the downstreamProjects that this build will trigger
+    path = "#{url}/job/#{jobName}/api/json"
+    req = msg.http(path)
+    if process.env.HUBOT_JENKINS_AUTH
+      auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
+      req.headers Authorization: "Basic #{auth}"
+
+    downstreamProjects = {}
+    req.header('Content-Length', 0)
+    req.get() (err, res, body) ->
+        if err
+          msg.send "Jenkins says: #{err}"
+        else if res.statusCode == 200
+          json = JSON.parse(body)
+          downstreamProjects = json.downstreamProjects
+          msg.send "downstreamProjects #{downstreamProjects}"
+
+    # Figure out the nextBuildNumber
+    # TODO: Handle builds in the queue
+    downstreamBuildLinks = []
+    for downstreamProject in downstreamProjects
+      do (downstreamProject) ->
+        path = "#{downstreamProject.url}api/json"
+        req = msg.http(path)
+        if process.env.HUBOT_JENKINS_AUTH
+          auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
+          req.headers Authorization: "Basic #{auth}"
+        req.header('Content-Length', 0)
+        req.get() (err, res, body) ->
+            if err
+              msg.send "Jenkins says: #{err}"
+            else if res.statusCode == 200
+              json = JSON.parse(body)
+              downstreamBuildLinks.push("#{json.url}#{json.nextBuildNumber}")
+
+    return downstreamBuildLinks
 
 
 jenkinsBuildIssue = (msg) ->
