@@ -80,7 +80,7 @@ notifyOfDownstreamJobs = (msg, jobName, issue) ->
                 json = JSON.parse(body)
                 downstreamBuildLink = "#{json.url}#{json.nextBuildNumber}"
                 msg.send "#{json.displayName} will be: #{downstreamBuildLink}"
-                postBuildToPullRequest(issue, downstreamBuilLink)
+                postBuildToPullRequest(issue, downstreamBuildLink)
               else
                 msg.send "Jenkins status code: #{res.statusCode}"
 
