@@ -45,9 +45,9 @@ getDownstreamBuildLinks = (msg, jobName) ->
       auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
       req.headers Authorization: "Basic #{auth}"
 
-    downstreamProjects = {}
+    downstreamProjects = []
     req.header('Content-Length', 0)
-    req.get() (err, res, body) ->
+    req.get() (err, res, body, downstreamProjects) ->
         if err
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 200
@@ -66,7 +66,7 @@ getDownstreamBuildLinks = (msg, jobName) ->
         auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
         req.headers Authorization: "Basic #{auth}"
       req.header('Content-Length', 0)
-      req.get() (err, res, body) ->
+      req.get() (err, res, body, downstreamBuildLinks) ->
           if err
             msg.send "Jenkins says: #{err}"
           else if res.statusCode == 200
@@ -75,7 +75,7 @@ getDownstreamBuildLinks = (msg, jobName) ->
           else
             msg.send "Jenkins status code: #{res.statusCode}"
 
-    msg.send "downstreamBuilkLinks count: " + downstreamBuildLinks.length
+    msg.send "downstreamBuildLinks count: " + downstreamBuildLinks.length
 
     return downstreamBuildLinks
 
