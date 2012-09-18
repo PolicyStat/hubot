@@ -94,9 +94,9 @@ jenkinsBuildIssue = (msg) ->
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 302
           msg.send "Build started for issue #{issue} #{res.headers.location}"
-          #downstreamBuildLinks = getDownstreamBuildLinks(jobName)
-          #for downstreamBuildLink in downstreamBuildLinks
-          #  msg.send "Test for #{issue} will be: #{downstreamBuildLink}"
+          downstreamBuildLinks = getDownstreamBuildLinks(jobName)
+          for downstreamBuildLink in downstreamBuildLinks
+            msg.send "Test for #{issue} will be: #{downstreamBuildLink}"
           # TODO: Post these job links to the github pull request
           # TODO: Store the job numbers, who requested them and the issue
           # number in memcached. Then use Heroku's cron job stuff to periodically
