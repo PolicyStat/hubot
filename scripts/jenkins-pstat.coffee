@@ -71,6 +71,7 @@ getDownstreamBuildLinks = (msg, jobName) ->
           else if res.statusCode == 200
             json = JSON.parse(body)
             downstreamBuildLinks.push("#{json.url}#{json.nextBuildNumber}")
+    msg.send "downstreamBuilkLinks count: " + downstreamBuildLinks.length
 
     return downstreamBuildLinks
 
