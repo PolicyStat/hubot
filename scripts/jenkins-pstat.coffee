@@ -52,6 +52,8 @@ getDownstreamBuildLinks = (msg, jobName) ->
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 200
           json = JSON.parse(body)
+          msg.send "displayName: " + json.displayName
+          msg.send "downstreamProjects: " + json.downstreamProjects
           downstreamProjects = json.downstreamProjects
           msg.send "downstreamProjects count: " + downstreamProjects.length
 
