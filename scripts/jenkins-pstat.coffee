@@ -57,6 +57,7 @@ getDownstreamBuildLinks = (msg, jobName) ->
           downstreamProjects = json.downstreamProjects
           msg.send "downstreamProjects count: " + downstreamProjects.length
 
+    msg.send "downstreamProjects count outside loop: " + downstreamProjects.length
     # Figure out the nextBuildNumber
     # TODO: Handle builds in the queue
     downstreamBuildLinks = []
