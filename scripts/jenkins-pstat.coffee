@@ -47,14 +47,14 @@ getDownstreamBuildLinks = (msg, jobName) ->
 
     downstreamProjects = []
     req.header('Content-Length', 0)
-    req.get() (err, res, body, downstreamProjects) ->
+    req.get() (err, res, body) ->
         if err
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 200
           json = JSON.parse(body)
           msg.send "displayName: " + json.displayName
           msg.send "downstreamProjects: " + json.downstreamProjects
-          downstreamProjects = json.downstreamProjects
+          downstreamProjects += json.downstreamProjects
           msg.send "downstreamProjects count: " + downstreamProjects.length
 
     msg.send "downstreamProjects count outside loop: " + downstreamProjects.length
