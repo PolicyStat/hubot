@@ -59,6 +59,7 @@ getDownstreamBuildLinks = (msg, jobName) ->
     # TODO: Handle builds in the queue
     downstreamBuildLinks = []
     for downstreamProject in downstreamProjects
+      msg.send "Getting next build for #{downstreamProject.url}"
       path = "#{downstreamProject.url}api/json"
       req = msg.http(path)
       if process.env.HUBOT_JENKINS_AUTH
@@ -71,6 +72,9 @@ getDownstreamBuildLinks = (msg, jobName) ->
           else if res.statusCode == 200
             json = JSON.parse(body)
             downstreamBuildLinks.push("#{json.url}#{json.nextBuildNumber}")
+          else
+            msg.send "Jenkins status code: #{res.statusCode}"
+
     msg.send "downstreamBuilkLinks count: " + downstreamBuildLinks.length
 
     return downstreamBuildLinks
