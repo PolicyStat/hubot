@@ -14,6 +14,8 @@
 # Forked to make building a pstat_ticket branch less verbose.
 #
 
+github = {}
+
 jenkinsBuild = (msg) ->
     url = process.env.HUBOT_JENKINS_URL
     job = msg.match[1]
@@ -35,7 +37,16 @@ jenkinsBuild = (msg) ->
         else
           msg.send "Jenkins says: #{body}"
 
-notifyOfDownstreamJobs = (msg, jobName) ->
+
+postBuildToPullRequest = (issue, buildLink) ->
+  bot_github_repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
+
+  data = {body: "Test link: #{buildLink}"} 
+  url = "repos/#{bot_github_repo}/issues/#{issue}/comments"
+  github.post url, data, (comment_obj) ->
+    return
+
+notifyOfDownstreamJobs = (msg, jobName, issue) ->
     # Now get the downstreamProjects that this build will trigger
     url = process.env.HUBOT_JENKINS_URL
     path = "#{url}/job/#{jobName}/api/json"
@@ -69,6 +80,7 @@ notifyOfDownstreamJobs = (msg, jobName) ->
                 json = JSON.parse(body)
                 downstreamBuildLink = "#{json.url}#{json.nextBuildNumber}"
                 msg.send "#{json.displayName} will be: #{downstreamBuildLink}"
+                postBuildToPullRequest(issue, downstreamBuilLink)
               else
                 msg.send "Jenkins status code: #{res.statusCode}"
 
@@ -99,7 +111,7 @@ jenkinsBuildIssue = (msg) ->
         else if res.statusCode == 302
           msg.send "Build started for issue #{issue} #{res.headers.location}"
 
-          notifyOfDownstreamJobs(msg, jobName)
+          notifyOfDownstreamJobs(msg, jobName, issue)
 
         else
           msg.send "Jenkins says: #{body}"
@@ -128,6 +140,8 @@ jenkinsList = (msg) ->
             msg.send error
 
 module.exports = (robot) ->
+  github = require("githubot")(robot)
+
   robot.respond /ci issue ([\d_]+)/i, (msg) ->
     jenkinsBuildIssue(msg)
 
