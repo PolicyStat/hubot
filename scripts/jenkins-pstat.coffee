@@ -94,6 +94,7 @@ jenkinsBuildIssue = (msg) ->
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 302
           msg.send "Build started for issue #{issue} #{res.headers.location}"
+          msg.send "Attempting to find downstreamBuildLinks"
           downstreamBuildLinks = getDownstreamBuildLinks(jobName)
           for downstreamBuildLink in downstreamBuildLinks
             msg.send "Test for #{issue} will be: #{downstreamBuildLink}"
