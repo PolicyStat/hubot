@@ -35,7 +35,7 @@ jenkinsBuild = (msg) ->
         else
           msg.send "Jenkins says: #{body}"
 
-getDownstreamBuildLinks = (jobName) ->
+getDownstreamBuildLinks = (msg, jobName) ->
     url = process.env.HUBOT_JENKINS_URL
 
     # First get the downstreamProjects that this build will trigger
@@ -94,8 +94,7 @@ jenkinsBuildIssue = (msg) ->
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 302
           msg.send "Build started for issue #{issue} #{res.headers.location}"
-          msg.send "Attempting to find downstreamBuildLinks"
-          downstreamBuildLinks = getDownstreamBuildLinks(jobName)
+          downstreamBuildLinks = getDownstreamBuildLinks(msg, jobName)
           for downstreamBuildLink in downstreamBuildLinks
             msg.send "Test for #{issue} will be: #{downstreamBuildLink}"
           # TODO: Post these job links to the github pull request
