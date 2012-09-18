@@ -52,12 +52,13 @@ getDownstreamBuildLinks = (msg, jobName) ->
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 200
           json = JSON.parse(body)
-          msg.send "displayName: " + json.displayName
-          msg.send "downstreamProjects: " + json.downstreamProjects
-          downstreamProjects += json.downstreamProjects
-          msg.send "downstreamProjects count: " + downstreamProjects.length
+          msg.send "json displayName: " + json.displayName
+          msg.send "json downstreamProjects: " + json.downstreamProjects
+          msg.send "json downstreamProjects length: " + json.downstreamProjects.length
+          downstreamProjects = json.downstreamProjects
+          msg.send "inside function downstreamProjects length: " + downstreamProjects.length
 
-    msg.send "downstreamProjects count outside loop: " + downstreamProjects.length
+    msg.send "outside function downstreamProjects length: " + downstreamProjects.length
     # Figure out the nextBuildNumber
     # TODO: Handle builds in the queue
     downstreamBuildLinks = []
