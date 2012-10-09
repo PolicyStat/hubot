@@ -64,6 +64,7 @@ notifyOfDownstreamJobs = (msg, jobName, issue) ->
           json = JSON.parse(body)
           downstreamProjects = json.downstreamProjects
 
+        console.log("Found %d downstream projects", downstreamProject.length);
         # Figure out the nextBuildNumber
         # TODO: Handle builds in the queue
         for downstreamProject in downstreamProjects
