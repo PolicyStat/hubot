@@ -41,7 +41,7 @@ jenkinsBuild = (msg) ->
 postBuildToPullRequest = (issue, buildLink) ->
   bot_github_repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
 
-  data = {body: "Test link: #{buildLink}"} 
+  data = {body: "Test link: #{buildLink}"}
   url = "repos/#{bot_github_repo}/issues/#{issue}/comments"
   github.post url, data, (comment_obj) ->
     return
@@ -49,7 +49,7 @@ postBuildToPullRequest = (issue, buildLink) ->
 notifyOfDownstreamJobs = (msg, jobName, issue) ->
     # Now get the downstreamProjects that this build will trigger
     url = process.env.HUBOT_JENKINS_URL
-    path = "#{url}/job/#{jobName}/api/json"
+    path = "#{url}/job/#{jobName}/api/json?tree=downstreamProjects[url]"
     req = msg.http(path)
     if process.env.HUBOT_JENKINS_AUTH
       auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
@@ -59,16 +59,18 @@ notifyOfDownstreamJobs = (msg, jobName, issue) ->
     req.get() (err, res, body) ->
         downstreamProjects = []
         if err
-          msg.send "Jenkins says: #{err}"
+          msg.send "Getting downstreamProjects failed with status: #{err}"
         else if res.statusCode == 200
           json = JSON.parse(body)
           downstreamProjects = json.downstreamProjects
 
-        console.log("Found %d downstream projects", downstreamProjects.length);
+        console.log("Found %d downstream projects", downstreamProjects.length)
+        if downstreamProjects.length == 0
+          console.log("Now downstreamProjects found with url: #{path}")
         # Figure out the nextBuildNumber
         # TODO: Handle builds in the queue
         for downstreamProject in downstreamProjects
-          path = "#{downstreamProject.url}api/json"
+          path = "#{downstreamProject.url}api/json?tree=url,nextBuildNumber,displayName"
           req = msg.http(path)
           if process.env.HUBOT_JENKINS_AUTH
             auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
@@ -76,16 +78,17 @@ notifyOfDownstreamJobs = (msg, jobName, issue) ->
           req.header('Content-Length', 0)
           req.get() (err, res, body) ->
               if err
-                msg.send "Jenkins says: #{err}"
+                errorMessage = "Getting job info from #{downstreamProject.url} failed with status: #{err}"
+                console.log(errorMessage)
+                msg.send errorMessage
               else if res.statusCode == 200
                 json = JSON.parse(body)
                 downstreamBuildLink = "#{json.url}#{json.nextBuildNumber}"
                 msg.send "#{json.displayName} will be: #{downstreamBuildLink}"
                 postBuildToPullRequest(issue, downstreamBuildLink)
               else
-                msg.send "Jenkins status code: #{res.statusCode}"
+                msg.send "Getting job info from #{downstreamProject.url} failed with status: #{res.statusCode}"
 
-              # TODO: Post these job links to the github pull request
               # TODO: Store the job numbers, who requested them and the issue
               # number in memcached. Then use Heroku's cron job stuff to periodically
               # check these things in Memcached and then post to the Github issue
