@@ -43,18 +43,9 @@ postBuildToPullRequest = (issue, buildLink) ->
 
   data = {body: "Jenkins testrun URL: #{buildLink}"}
   url = "repos/#{bot_github_repo}/issues/#{issue}/comments"
-  github.post url, data, (err, res, comment_obj) ->
-      if err
-        errorMessage = "Posting comment to Github issue failed with error: #{err}"
-        console.log(errorMessage)
-        msg.send errorMessage
-      else if res.statusCode == 201
-        console.log(
-          "Succesfully posted comment to Github issue for issue #{issue}")
-      else
-        console.log(
-          "Posting comment to github issue #{url} failed with status: #{res.statusCode}")
-        msg.send "Posting comment to github issue #{url} failed with status: #{res.statusCode}"
+  github.post url, data, (comment_obj) ->
+      console.log(
+        "Succesfully posted comment to Github issue for issue #{issue}")
 
 
 notifyGithubOfJob = (msg, jobUrl, issue) ->
