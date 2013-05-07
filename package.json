@@ -19,12 +19,12 @@
   },
 
   "dependencies": {
-    "hubot": "2.3.3",
-    "hubot-scripts": "2.1.2",
-    "hubot-hipchat": ">=1.0.6",
-	"scraper": "0.0.9",
+    "hubot": "2.5.1",
+    "hubot-scripts": "2.4.3",
+    "hubot-hipchat": ">=2.4.5",
+    "scraper": "0.0.9",
     "optparse": "1.0.3",
-	"githubot": "0.3.0"
+    "githubot": "0.4.0"
   }
 }
 
