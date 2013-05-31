@@ -32,26 +32,35 @@ APP_SERVERS =
         'dyno1-00.pstatbeta.com',
     ]
 
+_s = require("underscore.string")
 Select = require("soupselect").select
 HtmlParser = require "htmlparser"
 
+getServerStatus = (server) ->
+    console.log 'server', server
+    robot.http("http://#{server}/site_status/").get() (err, res, body) ->
+        if err
+            msg.send "Sorry, the tubes are broken: #{err}"
+            return
+        handler = new HtmlParser.DefaultHandler()
+        parser = new HtmlParser.Parser handler
+        parser.parseComplete body
+        status = Select handler.dom, ".status"
+        status = _s.trim status
+        response = ""
+        console.log "status '#{status}'"
+        if status == 'ALL_PASS NO_CRITICAL'
+            response = server + ' looks good'
+        else
+            response = server + ' has errors'
+        msg.send response
+
+handleStatusRequest = (msg) ->
+    site = msg.match[1]
+    console.log 'site', site
+    for server in APP_SERVERS[site]
+        getServerStatus server
+
 module.exports = (robot) ->
     robot.respond /(live|training|beta) status$/i, (msg) ->
-        site = msg.match[1]
-        console.log 'site', site
-        for server in APP_SERVERS[site]
-            console.log 'server', server
-            robot.http('http://' + server + '/site_status/').get() (err, res, body) ->
-                if err
-                    msg.send 'Sorry, the tubes are broken'
-                    return
-                handler = new HtmlParser.DefaultHandler()
-                parser = new HtmlParser.Parser handler
-                parser.parseComplete body
-                status = Select handler.dom, ".status"
-                response = ""
-                if status == 'ALL_PASS NO_CRITICAL'
-                    response = server + ' looks good'
-                else
-                    response = server + ' has errors'
-                msg.send response
+        handleStatusRequest msg
