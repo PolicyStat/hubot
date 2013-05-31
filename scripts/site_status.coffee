@@ -51,7 +51,7 @@ getServerStatus = (robot, msg, server) ->
         msg.send response
 
 handleStatusRequest = (robot, msg) ->
-    site = msg.match[1].trim().toLowerCase()
+    site = msg.match[1].trim()
     console.log 'site', site
     for server in APP_SERVERS[site]
         getServerStatus robot, msg, server
