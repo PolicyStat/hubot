@@ -45,11 +45,11 @@ getServerStatus = (robot, msg, server) ->
         handler = new HtmlParser.DefaultHandler()
         parser = new HtmlParser.Parser handler
         parser.parseComplete body
-        status = Select handler.dom, ".status"
-        status = _s.trim status
+        statuses = Select handler.dom, ".status"
+        top_status = _s.trim statuses[0].raw
         response = ""
-        console.log "status '#{status}'"
-        if status == 'ALL_PASS NO_CRITICAL'
+        console.log "top_status '#{top_status}'"
+        if top_status == 'ALL_PASS NO_CRITICAL'
             response = server + ' looks good'
         else
             response = server + ' has errors'
