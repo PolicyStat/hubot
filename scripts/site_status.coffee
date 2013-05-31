@@ -41,11 +41,10 @@ getServerStatus = (robot, msg, server) ->
             return
         $ = cheerio.load(body)
         statuses = $('.status')
-        console.log 'first status', statuses.first()
         top_status = statuses.first().text().trim()
         console.log "top_status '#{top_status}'"
         response = ""
-        if top_status == 'ALL_PASS NO_CRITICAL'
+        if /ALL_PASS(.|\n)*NO_CRITICAL/.test(top_status)
             response = server + ' looks good'
         else
             response = server + ' has errors'
