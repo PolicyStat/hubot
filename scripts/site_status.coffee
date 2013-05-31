@@ -41,7 +41,7 @@ module.exports = (robot) ->
         console.log 'site', site
         for server in APP_SERVERS[site]
             console.log 'server', server
-            robot.http(server + '/site_status/').get() (err, res, body) ->
+            robot.http('http://' + server + '/site_status/').get() (err, res, body) ->
                 if err
                     msg.send 'Sorry, the tubes are broken'
                     return
