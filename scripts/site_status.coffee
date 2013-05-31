@@ -38,8 +38,13 @@ HtmlParser = require "htmlparser"
 module.exports = (robot) ->
     robot.respond /(live|training|beta) status$/i, (msg) ->
         site = msg.match[1]
+        console.log 'site', site
         for server in APP_SERVERS[site]
-            msg.http(server + '/site_status/').get() (err, res, body) ->
+            console.log 'server', server
+            robot.http(server + '/site_status/').get() (err, res, body) ->
+                if err
+                    msg.send 'Sorry, the tubes are broken'
+                    return
                 handler = new HtmlParser.DefaultHandler()
                 parser = new HtmlParser.Parser handler
                 parser.parseComplete body
