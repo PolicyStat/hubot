@@ -2,11 +2,8 @@
     "tweet.coffee",
     "shipit.coffee",
     "github-issue-link.coffee",
-    //"aws.coffee",
     "xkcd.coffee",
-    //"bitcoin.coffee",
     "commitmessage.coffee",
     "cowsay.coffee",
-    //"github-activity.coffee",
     "github-commit-link.coffee"
 ]
