@@ -26,12 +26,9 @@
     "optparse": "1.0.3",
     "aws2js": "0.6.12",
     "underscore": "1.3.3",
-    "underscore.string": "2.3.0",
     "moment": "1.6.2",
     "date-utils": ">=1.2.5",
     "cheerio": "",
-    "htmlparser": "1.7.6",
-    "soupselect": "0.2.0",
     "githubot": "0.4.0"
   }
 }
