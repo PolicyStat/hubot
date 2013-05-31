@@ -54,8 +54,8 @@ handleStatusRequest = (robot, msg) ->
     environment = msg.match[1].trim()
     if environment not of APP_SERVERS
         return
-    console.log 'site', site
-    for server in APP_SERVERS[site]
+    console.log 'environment', environment
+    for server in APP_SERVERS[environment]
         getServerStatus robot, msg, server
 
 module.exports = (robot) ->
