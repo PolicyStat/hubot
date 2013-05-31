@@ -24,6 +24,11 @@
     "hubot-hipchat": ">=2.4.5",
     "scraper": "0.0.9",
     "optparse": "1.0.3",
+    "aws2js": "0.6.12",
+    "underscore": "1.3.3",
+    "moment": "1.6.2",
+    "date-utils": ">=1.2.5",
+    "cheerio": "",
     "githubot": "0.4.0"
   }
 }
