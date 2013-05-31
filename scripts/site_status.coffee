@@ -31,6 +31,7 @@ APP_SERVERS =
         'dyno1-00.pstatbeta.com',
     ]
 
+cheerio = require('cheerio')
 
 getServerStatus = (robot, msg, server) ->
     console.log 'server', server
