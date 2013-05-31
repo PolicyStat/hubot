@@ -29,6 +29,8 @@
     "moment": "1.6.2",
     "date-utils": ">=1.2.5",
     "cheerio": "",
+    "htmlparser": "1.7.6",
+    "soupselect": "0.2.0",
     "githubot": "0.4.0"
   }
 }
