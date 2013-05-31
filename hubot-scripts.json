@@ -1,12 +1,15 @@
 [
-    "tweet.coffee",
-    "shipit.coffee",
-    "github-issue-link.coffee",
-    "xkcd.coffee",
+    "archer.coffee",
+    "aws.coffee",
+    "bitcoin.coffee",
     "commitmessage.coffee",
     "cowsay.coffee",
     "github-activity.coffee",
-    "bitcoin.coffee",
-    "aws.coffee",
-    "github-commit-link.coffee"
+    "github-commit-link.coffee",
+    "github-issue-link.coffee",
+    "good-night.coffee",
+    "shipit.coffee",
+    "speak.coffee",
+    "tweet.coffee",
+    "xkcd.coffee"
 ]
