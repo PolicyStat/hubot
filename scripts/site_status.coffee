@@ -36,7 +36,7 @@ _s = require("underscore.string")
 Select = require("soupselect").select
 HtmlParser = require "htmlparser"
 
-getServerStatus = (server) ->
+getServerStatus = (robot, server) ->
     console.log 'server', server
     robot.http("http://#{server}/site_status/").get() (err, res, body) ->
         if err
@@ -55,12 +55,12 @@ getServerStatus = (server) ->
             response = server + ' has errors'
         msg.send response
 
-handleStatusRequest = (msg) ->
+handleStatusRequest = (robot, msg) ->
     site = msg.match[1]
     console.log 'site', site
     for server in APP_SERVERS[site]
-        getServerStatus server
+        getServerStatus robot, server
 
 module.exports = (robot) ->
     robot.respond /(live|training|beta) status$/i, (msg) ->
-        handleStatusRequest msg
+        handleStatusRequest robot, msg
