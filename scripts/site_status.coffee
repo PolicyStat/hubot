@@ -2,8 +2,7 @@
 #   Scan site status for errors, and display them
 #
 # Dependencies:
-#   "htmlparser": "1.7.6"
-#   "soupselect": "0.2.0"
+#   "cheerio": ""
 #
 # Configuration:
 #   None
@@ -32,9 +31,6 @@ APP_SERVERS =
         'dyno1-00.pstatbeta.com',
     ]
 
-_s = require("underscore.string")
-Select = require("soupselect").select
-HtmlParser = require "htmlparser"
 
 getServerStatus = (robot, msg, server) ->
     console.log 'server', server
@@ -42,13 +38,12 @@ getServerStatus = (robot, msg, server) ->
         if err
             msg.send "Sorry, the tubes are broken: #{err}"
             return
-        handler = new HtmlParser.DefaultHandler()
-        parser = new HtmlParser.Parser handler
-        parser.parseComplete body
-        statuses = Select handler.dom, ".status"
-        top_status = _s.trim statuses[0].raw
-        response = ""
+        $ = cheerio.load(body)
+        statuses = $('.status')
+        console.log 'statuses', statuses
+        top_status = statuses[0].text().trim()
         console.log "top_status '#{top_status}'"
+        response = ""
         if top_status == 'ALL_PASS NO_CRITICAL'
             response = server + ' looks good'
         else
@@ -56,7 +51,7 @@ getServerStatus = (robot, msg, server) ->
         msg.send response
 
 handleStatusRequest = (robot, msg) ->
-    site = msg.match[1]
+    site = msg.match[1].trim().toLowerCase()
     console.log 'site', site
     for server in APP_SERVERS[site]
         getServerStatus robot, msg, server
