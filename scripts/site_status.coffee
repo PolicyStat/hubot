@@ -44,10 +44,10 @@ getServerStatus = (robot, msg, server) ->
         top_status = statuses.first().text().trim()
         console.log "top_status '#{top_status}'"
         response = ""
-        if /ALL_PASS(.|\n)*NO_CRITICAL/.test(top_status)
-            response = server + ' looks good'
-        else
+        if top_status == ''
             response = server + ' has errors'
+        else
+            response = "#{server}: #{top_status}"
         msg.send response
 
 handleStatusRequest = (robot, msg) ->
