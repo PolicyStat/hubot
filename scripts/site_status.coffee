@@ -41,7 +41,7 @@ getServerStatus = (robot, msg, server) ->
             return
         $ = cheerio.load(body)
         statuses = $('.status')
-        top_status = statuses.first().text().trim()
+        top_status = statuses.first().text().trim().replace("\n", "")
         console.log "top_status '#{top_status}'"
         response = ""
         if top_status == ''
@@ -51,11 +51,13 @@ getServerStatus = (robot, msg, server) ->
         msg.send response
 
 handleStatusRequest = (robot, msg) ->
-    site = msg.match[1].trim()
+    environment = msg.match[1].trim()
+    if environment not of APP_SERVERS
+        return
     console.log 'site', site
     for server in APP_SERVERS[site]
         getServerStatus robot, msg, server
 
 module.exports = (robot) ->
-    robot.respond /(live|training|beta) status$/i, (msg) ->
+    robot.respond /status (.*)$/i, (msg) ->
         handleStatusRequest robot, msg
