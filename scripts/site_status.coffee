@@ -40,13 +40,16 @@ getServerStatus = (robot, msg, server) ->
         if err
             msg.send "Sorry, the tubes are broken: #{err}"
             return
+        console.log res
+        console.log '--'
+        console.log body
         $ = cheerio.load(body)
         statuses = $('.status')
         top_status = statuses.first().text().trim().replace("\n", "")
         console.log "top_status '#{top_status}'"
         response = ""
         if top_status == ''
-            response = server + ' has errors'
+            response = status_url + ' has errors'
         else
             response = "#{status_url}: #{top_status}"
         msg.send response
