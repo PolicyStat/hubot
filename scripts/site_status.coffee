@@ -35,7 +35,7 @@ cheerio = require('cheerio')
 
 getServerStatus = (robot, msg, server) ->
     console.log 'server', server
-    status_url = server + "/site_status/"
+    status_url = server + "/site_status"
     robot.http("http://" + status_url).get() (err, res, body) ->
         if err
             msg.send "Sorry, the tubes are broken: #{err}"
