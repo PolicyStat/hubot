@@ -40,20 +40,21 @@ http = require 'http'
 # better implementation. this interface mirrors, somewhat, a Promise
 get = (options) ->
     req = http.get options.url
-    req.setTimeout options.timeout, () ->
-        error = new Error('connection timed out')
-        error.code = 'ETIMEOUT'
-        req.emit 'error', error
-        req._hadError = true
-        req.abort()
+    if options.timeout?
+        req.setTimeout options.timeout, () ->
+            error = new Error('connection timed out')
+            error.code = 'ETIMEOUT'
+            req.emit 'error', error
+            req._hadError = true
+            req.abort()
     req.on 'response', (res) ->
         body = ''
         res.on 'data', (chunk) ->
             body += chunk
         res.on 'end', ->
-            options.done(req, res, body)
+            options.done?(req, res, body)
     req.on 'error', (error) ->
-        options.fail(req, error)
+        options.fail?(req, error)
     req
 
 
