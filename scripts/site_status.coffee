@@ -30,26 +30,53 @@ APP_SERVERS =
         'dyno0-00.pstatbeta.com',
         'dyno1-00.pstatbeta.com',
     ]
+TIMEOUT = 3000
 
-cheerio = require('cheerio')
+cheerio = require 'cheerio'
+http = require 'http'
+
+# hubot uses scoped-http-client to implement robot.http(). unfortunately this
+# implementation leaves proper error handling seriously wanting, so here's a
+# better implementation. this interface mirrors, somewhat, a Promise
+get = (options) ->
+    req = http.get options.url
+    req.setTimeout options.timeout, () ->
+        error = new Error('connection timed out')
+        error.code = 'ETIMEOUT'
+        req.emit 'error', error
+        req._hadError = true
+        req.abort()
+    req.on 'response', (res) ->
+        body = ''
+        res.on 'data', (chunk) ->
+            body += chunk
+        res.on 'end', ->
+            options.done(req, res, body)
+    req.on 'error', (error) ->
+        options.fail(req, error)
+    req
+
 
 getServerStatus = (robot, msg, server) ->
     console.log 'server', server
     status_url = server + "/site_status"
-    robot.http("http://#{status_url}/").get() (err, res, body) ->
-        if err
-            msg.send "Sorry, the tubes are broken: #{err}"
-            return
-        $ = cheerio.load(body)
-        statuses = $('.status')
-        top_status = statuses.first().text().trim().replace("\n", "")
-        console.log "top_status '#{top_status}'"
-        response = ""
-        if top_status == ''
-            response = status_url + ' has errors'
-        else
-            response = "#{status_url}: #{top_status}"
-        msg.send response
+    get(
+        url: "http://#{status_url}/"
+        timeout: TIMEOUT
+        done: (req, res, body) ->
+            $ = cheerio.load(body)
+            statuses = $('.status')
+            top_status = statuses.first().text().trim().replace("\n", "")
+            console.log "top_status '#{top_status}'"
+            response = ""
+            if top_status == ''
+                response = status_url + ' has errors'
+            else
+                response = "#{status_url}: #{top_status}"
+            msg.send response
+        fail: (req, error) ->
+            msg.send "#{status_url}: #{error}"
+    )
 
 handleStatusRequest = (robot, msg) ->
     environment = msg.match[1].trim()
