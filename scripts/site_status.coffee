@@ -79,14 +79,50 @@ getServerStatus = (robot, msg, server) ->
             msg.send "#{status_url}: #{error}"
     )
 
-handleStatusRequest = (robot, msg) ->
+getServerStatusJSON = (robot, msg, server) ->
+    console.log 'server', server
+    status_url = server + "/site_status"
+    get(
+        url: "http://#{status_url}/status.json"
+        timeout: TIMEOUT
+        done: (req, res, body) ->
+            try
+                status = JSON.parse(body)
+            catch error
+                msg.send error
+                return
+
+            response_status = []
+            if status.all_pass:
+                response_status.push('ALL_PASS')
+            if status.no_critical
+                response_status.push('NO_CRITICAL')
+
+            load = [
+                status.loadavg.avg1,
+                status.loadavg.avg5,
+                status.loadavg.avg15
+            ]
+
+            response = "#{status_url}: #{response_status.join(' ')} (#{load.join('|')}, #{status.version})"
+            msg.send response
+        fail: (req, error) ->
+            msg.send "#{status_url}: #{error}"
+    )
+
+handleStatusRequest = (robot, msg, use_json) ->
     environment = msg.match[1].trim()
     if environment not of APP_SERVERS
         return
     console.log 'environment', environment
     for server in APP_SERVERS[environment]
-        getServerStatus robot, msg, server
+        if use_json
+            getServerStatusJSON robot, msg, server
+        else
+            getServerStatus robot, msg, server
 
 module.exports = (robot) ->
     robot.respond /status (.*)$/i, (msg) ->
-        handleStatusRequest robot, msg
+        handleStatusRequest robot, msg, false
+    robot.respond /status2 (.*)$/i, (msg) ->
+        handleStatusRequest robot, msg, true
