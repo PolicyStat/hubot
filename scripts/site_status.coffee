@@ -110,14 +110,14 @@ getServerStatusJSON = (robot, msg, server) ->
             ]
             failing_response = ""
             if failing
-                failing_response = "Failing: #{failing.join(' ')}"
+                failing_response = "<b>Failing</b>: #{failing.join(' ')}"
             response = [
                 "#{status_url}: #{response_status.join(' ')}",
                 failing_response,
-                "Load: #{load.join(' ')}",
-                "Version: #{status.version}"
+                "<b>Load</b>: #{load.join(' ')}",
+                "<b>Version</b>: #{status.version}"
             ]
-            msg.send response.join(' ')
+            msg.send response.join(' | ')
         fail: (req, error) ->
             msg.send "#{status_url}: #{error}"
     )
