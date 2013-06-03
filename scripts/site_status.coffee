@@ -8,7 +8,7 @@
 #   None
 #
 # Commands:
-#   hubot (live|training|beta) status
+#   hubot status <environment>
 #
 # Author:
 #   kylegibson
@@ -110,12 +110,12 @@ getServerStatusJSON = (robot, msg, server) ->
             ]
             failing_response = ""
             if failing
-                failing_response = "<b>Failing</b>: #{failing.join(' ')}"
+                failing_response = "Failing: #{failing.join(' ')}"
             response = [
                 "#{status_url}: #{response_status.join(' ')}",
                 failing_response,
-                "<b>Load</b>: #{load.join(' ')}",
-                "<b>Version</b>: #{status.version}"
+                "Load: #{load.join(' ')}",
+                "Version: #{status.version}"
             ]
             msg.send response.join(' | ')
         fail: (req, error) ->
