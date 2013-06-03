@@ -93,8 +93,13 @@ getServerStatusJSON = (robot, msg, server) ->
                 return
 
             response_status = []
+            failing = []
             if status.all_pass
                 response_status.push('ALL_PASS')
+            else
+                for check in status.status_checks
+                    if not check.status
+                        failing.push check.name
             if status.no_critical
                 response_status.push('NO_CRITICAL')
 
@@ -103,9 +108,16 @@ getServerStatusJSON = (robot, msg, server) ->
                 status.loadavg.avg5,
                 status.loadavg.avg15
             ]
-
-            response = "#{status_url}: #{response_status.join(' ')} (#{load.join('|')}, #{status.version})"
-            msg.send response
+            failing_response = ""
+            if failing
+                failing_response = "Failing: #{failing.join(' ')}"
+            response = [
+                "#{status_url}: #{response_status.join(' ')}",
+                failing_response,
+                "Load: #{load.join(' ')}",
+                "Version: #{status.version}"
+            ]
+            msg.send response.join(' ')
         fail: (req, error) ->
             msg.send "#{status_url}: #{error}"
     )
