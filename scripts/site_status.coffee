@@ -93,7 +93,7 @@ getServerStatusJSON = (robot, msg, server) ->
                 return
 
             response_status = []
-            if status.all_pass:
+            if status.all_pass
                 response_status.push('ALL_PASS')
             if status.no_critical
                 response_status.push('NO_CRITICAL')
