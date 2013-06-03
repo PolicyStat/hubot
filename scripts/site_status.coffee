@@ -2,7 +2,7 @@
 #   Scan site status for errors, and display them
 #
 # Dependencies:
-#   "cheerio": ""
+#   None
 #
 # Configuration:
 #   None
@@ -32,7 +32,6 @@ APP_SERVERS =
     ]
 TIMEOUT = 3000
 
-cheerio = require 'cheerio'
 http = require 'http'
 
 # hubot uses scoped-http-client to implement robot.http(). unfortunately this
@@ -58,27 +57,6 @@ get = (options) ->
     req
 
 
-getServerStatus = (robot, msg, server) ->
-    console.log 'server', server
-    status_url = server + "/site_status"
-    get(
-        url: "http://#{status_url}/"
-        timeout: TIMEOUT
-        done: (req, res, body) ->
-            $ = cheerio.load(body)
-            statuses = $('.status')
-            top_status = statuses.first().text().trim().replace("\n", "")
-            console.log "top_status '#{top_status}'"
-            response = ""
-            if top_status == ''
-                response = status_url + ' has errors'
-            else
-                response = "#{status_url}: #{top_status}"
-            msg.send response
-        fail: (req, error) ->
-            msg.send "#{status_url}: #{error}"
-    )
-
 getServerStatusJSON = (robot, msg, server) ->
     console.log 'server', server
     status_url = server + "/site_status"
@@ -95,46 +73,39 @@ getServerStatusJSON = (robot, msg, server) ->
             response_status = []
             failing = []
             if status.all_pass
-                response_status.push('ALL_PASS')
+                response_status.push 'ALL_PASS'
             else
                 for check in status.status_checks
                     if not check.status
                         failing.push check.name
             if status.no_critical
-                response_status.push('NO_CRITICAL')
+                response_status.push 'NO_CRITICAL'
 
             load = [
                 status.loadavg.avg1,
                 status.loadavg.avg5,
                 status.loadavg.avg15
             ]
-            failing_response = ""
-            if failing
-                failing_response = "Failing: #{failing.join(' ')}"
             response = [
-                "#{status_url}: #{response_status.join(' ')}",
-                failing_response,
-                "Load: #{load.join(' ')}",
-                "Version: #{status.version}"
+                "#{status_url}: #{response_status.join(' ')}"
             ]
+            if failing.length > 0
+                response.push "Failing #{failing.join(' ')}"
+            response.push "Load: #{load.join(' ')}"
+            response.push "Version: #{status.version}"
             msg.send response.join(' | ')
         fail: (req, error) ->
             msg.send "#{status_url}: #{error}"
     )
 
-handleStatusRequest = (robot, msg, use_json) ->
+handleStatusRequest = (robot, msg) ->
     environment = msg.match[1].trim()
     if environment not of APP_SERVERS
         return
     console.log 'environment', environment
     for server in APP_SERVERS[environment]
-        if use_json
-            getServerStatusJSON robot, msg, server
-        else
-            getServerStatus robot, msg, server
+        getServerStatusJSON robot, msg, server
 
 module.exports = (robot) ->
     robot.respond /status (.*)$/i, (msg) ->
-        handleStatusRequest robot, msg, false
-    robot.respond /status2 (.*)$/i, (msg) ->
-        handleStatusRequest robot, msg, true
+        handleStatusRequest robot, msg
