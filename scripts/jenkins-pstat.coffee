@@ -37,17 +37,6 @@ jenkinsBuild = (msg) ->
         else
           msg.send "Jenkins says: #{body}"
 
-
-postBuildToPullRequest = (issue, buildLink) ->
-  bot_github_repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
-
-  data = {body: "Jenkins testrun URL: #{buildLink}"}
-  url = "repos/#{bot_github_repo}/issues/#{issue}/comments"
-  github.post url, data, (comment_obj) ->
-      console.log(
-        "Succesfully posted comment to Github issue for issue #{issue}")
-
-
 notifyGithubOfJob = (msg, jobUrl, issue) ->
     # Now get the downstreamProjects that this build will trigger
     path = "#{jobUrl}/api/json?tree=url,nextBuildNumber,displayName"
@@ -66,7 +55,6 @@ notifyGithubOfJob = (msg, jobUrl, issue) ->
           json = JSON.parse(body)
           buildLink = "#{json.url}#{json.nextBuildNumber}"
           msg.send "#{json.displayName} will be: #{buildLink}"
-          postBuildToPullRequest(issue, buildLink)
           markIssueAsPending(issue, buildLink)
         else
           msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
