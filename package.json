@@ -34,6 +34,7 @@
     "moment":        "1.6.2",
     "date-utils":    ">=1.2.5",
     "cheerio":       "",
+    "ntwitter":      "",
     "githubot":      "0.4.0"
   },
 
