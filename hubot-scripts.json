@@ -11,6 +11,5 @@
     "redis-brain.coffee",
     "shipit.coffee",
     "speak.coffee",
-    "tweet.coffee",
     "xkcd.coffee"
 ]

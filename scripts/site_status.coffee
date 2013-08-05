@@ -30,7 +30,7 @@ APP_SERVERS =
         'dyno0-00.pstatbeta.com',
         'dyno1-00.pstatbeta.com',
     ]
-TIMEOUT = 3000
+TIMEOUT = 5000
 
 http = require 'http'
 
@@ -38,10 +38,14 @@ http = require 'http'
 # implementation leaves proper error handling seriously wanting, so here's a
 # better implementation. this interface mirrors, somewhat, a Promise
 get = (options) ->
-    req = http.get options.url
+    try
+        req = http.get options.url
+    catch error
+        options.fail? null, error
+        return
     if options.timeout?
         req.setTimeout options.timeout, () ->
-            error = new Error('connection timed out')
+            error = new Error 'connection timed out'
             error.code = 'ETIMEOUT'
             req.emit 'error', error
             req._hadError = true
@@ -51,9 +55,9 @@ get = (options) ->
         res.on 'data', (chunk) ->
             body += chunk
         res.on 'end', ->
-            options.done?(req, res, body)
+            options.done? req, res, body
     req.on 'error', (error) ->
-        options.fail?(req, error)
+        options.fail? req, error
     req
 
 
