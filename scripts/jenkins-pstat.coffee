@@ -65,12 +65,6 @@ notifyGithubOfJob = (msg, jobUrl, issue) ->
         else
           msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
 
-        # TODO: Store the job numbers, who requested them and the issue
-        # number in memcached. Then use Heroku's cron job stuff to periodically
-        # check these things in Memcached and then post to the Github issue
-        # with the results. If they fail, also notify the requester in
-        # hipchat with the pull request link
-
 updateGithubBranchStatus = (opts) ->
   repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
   githubBranchRefsUrl = "repos/#{repo}/git/refs/heads/#{opts.branchName}"
