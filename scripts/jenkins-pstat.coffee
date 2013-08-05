@@ -56,12 +56,11 @@ notifyGithubOfJob = (msg, jobUrl, issue) ->
           buildLink = "#{json.url}#{json.nextBuildNumber}"
           msg.send "#{json.displayName} will be: #{buildLink}"
           updateGithubBranchStatus({
-            branchName: "issue_#{issue_num}",
+            branchName: "issue_#{issue}",
             state: "pending",
             stateURL: buildLink,
-            description: "Issue #{issue_num} is running.",
+            description: "Issue #{issue} is running.",
           })
-          markIssueAsPending(issue, buildLink)
         else
           msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
 
