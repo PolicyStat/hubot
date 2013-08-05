@@ -78,7 +78,7 @@ updateGithubBranchStatus = (opts) ->
       description: opts.description,
     }
     github.post githubPostStatusUrl, data, (comment_obj) ->
-      console.log("Github branch #{opts.branchName} marked as #{state}.")
+      console.log("Github branch #{opts.branchName} marked as #{opts.state}.")
 
 markGithubBranchAsFinished = (upstream_build_num, build_statuses) ->
   issue_num = build_statuses.issue_num
