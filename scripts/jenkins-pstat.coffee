@@ -55,6 +55,12 @@ notifyGithubOfJob = (msg, jobUrl, issue) ->
           json = JSON.parse(body)
           buildLink = "#{json.url}#{json.nextBuildNumber}"
           msg.send "#{json.displayName} will be: #{buildLink}"
+          updateGithubBranchStatus({
+            branchName: "issue_#{issue_num}",
+            state: "pending",
+            stateURL: buildLink,
+            description: "Issue #{issue_num} is running.",
+          })
           markIssueAsPending(issue, buildLink)
         else
           msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
@@ -65,57 +71,49 @@ notifyGithubOfJob = (msg, jobUrl, issue) ->
         # with the results. If they fail, also notify the requester in
         # hipchat with the pull request link
 
-markIssueAsPending = (issue_num, buildLink) ->
-  bot_github_repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
-
-  refs_url = "repos/#{bot_github_repo}/git/refs/heads/issue_#{issue_num}"
+updateGithubBranchStatus = (opts) ->
+  repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
+  githubBranchRefsUrl = "repos/#{repo}/git/refs/heads/#{opts.branchName}"
 
   sha = ""
-  github.get refs_url, (resp) ->
+  github.get githubBranchRefsUrl, (resp) ->
     sha = resp.object.sha
-    url = "repos/#{bot_github_repo}/statuses/#{sha}"
+    githubPostStatusUrl = "repos/#{repo}/statuses/#{sha}"
     data = {
-      state: "pending",
-      target_url: buildLink,
-      description: "Issue #{issue_num} is running."}
-    github.post url, data, (comment_obj) ->
-      console.log("Github issue #{issue_num} marked as pending.")
+      state: opts.state,
+      target_url: opts.stateURL,
+      description: opts.description,
+    }
+    github.post githubPostStatusUrl, data, (comment_obj) ->
+      console.log("Github branch #{opts.branchName} marked as #{state}.")
 
-updateGithubStatus = (upstream_build_num, build_statuses) ->
+markGithubBranchAsFinished = (upstream_build_num, build_statuses) ->
   issue_num = build_statuses.issue_num
   delete build_statuses.issue_num
-  bot_github_repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
 
-  refs_url = "repos/#{bot_github_repo}/git/refs/heads/issue_#{issue_num}"
+  project_num = Object.keys(build_statuses).length
 
-  sha = ""
-  github.get refs_url, (resp) ->
-    sha = resp.object.sha
-    url = "repos/#{bot_github_repo}/statuses/#{sha}"
+  failed_nodes = []
+  issue_status = "success"
+  for key, value of build_statuses
+    if value.status == "FAILURE"
+      issue_status = "failure"
+      failed_nodes.push(key)
 
-    issue_status = "success"
-    project_num = Object.keys(build_statuses).length
+  if issue_status is "failure"
+    status_description = "The following downstream projects failed: "
+    for node in failed_nodes
+      status_description += node + " "
+  else
     status_description = "Build #{upstream_build_num} succeeded! #{project_num} downstream projects completed successfully."
-    target_url = "#{process.env.HUBOT_JENKINS_URL}/job/pstat_ticket/#{upstream_build_num}"
 
-    failed_nodes = []
-    for key, value of build_statuses
-      if value.status == "FAILURE"
-        issue_status = "failure"
-        failed_nodes.push(key)
-
-    if issue_status is "failure"
-      status_description = "The following downstream projects failed: "
-      for node in failed_nodes
-        status_description += node + " "
-
-    data = {
-      "state": issue_status,
-      "target_url": target_url,
-      "description": status_description
-    }
-    github.post url, data, (resp) ->
-      console.log("Status for issue #{issue_num} updated: #{data.state}")
+  stateURL = "#{process.env.HUBOT_JENKINS_URL}/job/pstat_ticket/#{upstream_build_num}"
+  updateGithubBranchStatus({
+    branchName: "issue_#{issue_num}",
+    state: issue_status,
+    stateURL: stateURL,
+    description: status_description,
+  })
 
 jenkinsBuildIssue = (msg) ->
     url = process.env.HUBOT_JENKINS_URL
@@ -202,5 +200,5 @@ module.exports = (robot) ->
       console.log("Number of finished builds for upstream build " + upstream_build_num + ": " + num_builds)
       robot.brain.set upstream_build_num, build_statuses
       if num_builds is 6
-        updateGithubStatus(upstream_build_num, build_statuses)
+        markGithubBranchAsFinished(upstream_build_num, build_statuses)
         robot.brain.remove upstream_build_num
