@@ -37,17 +37,6 @@ jenkinsBuild = (msg) ->
         else
           msg.send "Jenkins says: #{body}"
 
-
-postBuildToPullRequest = (issue, buildLink) ->
-  bot_github_repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
-
-  data = {body: "Jenkins testrun URL: #{buildLink}"}
-  url = "repos/#{bot_github_repo}/issues/#{issue}/comments"
-  github.post url, data, (comment_obj) ->
-      console.log(
-        "Succesfully posted comment to Github issue for issue #{issue}")
-
-
 notifyGithubOfJob = (msg, jobUrl, issue) ->
     # Now get the downstreamProjects that this build will trigger
     path = "#{jobUrl}/api/json?tree=url,nextBuildNumber,displayName"
@@ -66,15 +55,59 @@ notifyGithubOfJob = (msg, jobUrl, issue) ->
           json = JSON.parse(body)
           buildLink = "#{json.url}#{json.nextBuildNumber}"
           msg.send "#{json.displayName} will be: #{buildLink}"
-          postBuildToPullRequest(issue, buildLink)
+          updateGithubBranchStatus({
+            branchName: "issue_#{issue}",
+            state: "pending",
+            stateURL: buildLink,
+            description: "Issue #{issue} is running.",
+          })
         else
           msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
 
-        # TODO: Store the job numbers, who requested them and the issue
-        # number in memcached. Then use Heroku's cron job stuff to periodically
-        # check these things in Memcached and then post to the Github issue
-        # with the results. If they fail, also notify the requester in
-        # hipchat with the pull request link
+updateGithubBranchStatus = (opts) ->
+  repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
+  githubBranchRefsUrl = "repos/#{repo}/git/refs/heads/#{opts.branchName}"
+
+  sha = ""
+  github.get githubBranchRefsUrl, (resp) ->
+    sha = resp.object.sha
+    githubPostStatusUrl = "repos/#{repo}/statuses/#{sha}"
+    data = {
+      state: opts.state,
+      target_url: opts.stateURL,
+      description: opts.description,
+    }
+    github.post githubPostStatusUrl, data, (comment_obj) ->
+      console.log("Github branch #{opts.branchName} marked as #{opts.state}.")
+
+markGithubBranchAsFinished = (upstream_build_num, build_data) ->
+  issue_num = build_data.issue_num
+  build_statuses = build_data.statuses
+  bot_github_repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
+
+  project_num = Object.keys(build_statuses).length
+
+  failed_nodes = []
+  issue_status = "success"
+  for key, value of build_statuses
+    if value.status == "FAILURE"
+      issue_status = "failure"
+      failed_nodes.push(key)
+
+  if issue_status is "failure"
+    status_description = "The following downstream projects failed: "
+    for node in failed_nodes
+      status_description += node + " "
+  else
+    status_description = "Build #{upstream_build_num} succeeded! #{project_num} downstream projects completed successfully."
+
+  stateURL = "#{process.env.HUBOT_JENKINS_URL}/job/pstat_ticket/#{upstream_build_num}"
+  updateGithubBranchStatus({
+    branchName: "issue_#{issue_num}",
+    state: issue_status,
+    stateURL: stateURL,
+    description: status_description,
+  })
 
 jenkinsBuildIssue = (msg) ->
     url = process.env.HUBOT_JENKINS_URL
@@ -140,3 +173,28 @@ module.exports = (robot) ->
     build: jenkinsBuild,
     issue: jenkinsBuildIssue,
   }
+
+  robot.router.post process.env.JENKINS_NOTIFICATION_ENDPOINT, (req) ->
+    data = req.body
+    project = data.name
+    params = data.build.parameters
+    upstream_build_num = params.SOURCE_BUILD_NUMBER
+    build_status = {
+      'build_num': data.build.number,
+      'phase': data.build.phase,
+      'status': data.build.status
+    }
+    console.log(build_status)
+    if build_status.phase is "FINISHED"
+      build_data = robot.brain.get(upstream_build_num) or {}
+      build_data['issue_num'] = params.ISSUE
+      build_statuses = build_data.statuses or {}
+      build_statuses[project] = build_status
+      build_data['statuses'] = build_statuses
+
+      num_builds = Object.keys(build_statuses).length
+      console.log("Number of finished builds for upstream build " + upstream_build_num + ": " + num_builds)
+      robot.brain.set upstream_build_num, build_data
+      if num_builds is process.env.JENKINS_NUM_PROJECTS
+        markGithubBranchAsFinished(upstream_build_num, build_data)
+        robot.brain.remove upstream_build_num
