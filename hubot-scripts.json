@@ -8,6 +8,7 @@
     "github-commit-link.coffee",
     "github-issue-link.coffee",
     "good-night.coffee",
+    "redis-brain.coffee",
     "shipit.coffee",
     "speak.coffee",
     "xkcd.coffee"
