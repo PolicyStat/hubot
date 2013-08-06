@@ -81,9 +81,9 @@ markIssueAsPending = (issue_num, buildLink) ->
     github.post url, data, (comment_obj) ->
       console.log("Github issue #{issue_num} marked as pending.")
 
-updateGithubStatus = (upstream_build_num, build_statuses) ->
-  issue_num = build_statuses.issue_num
-  delete build_statuses.issue_num
+updateGithubStatus = (upstream_build_num, build_data) ->
+  issue_num = build_data.issue_num
+  build_statuses = build_data.statuses
   bot_github_repo = github.qualified_repo process.env.HUBOT_GITHUB_REPO
 
   refs_url = "repos/#{bot_github_repo}/git/refs/heads/issue_#{issue_num}"
@@ -182,7 +182,7 @@ module.exports = (robot) ->
     issue: jenkinsBuildIssue,
   }
 
-  robot.router.post '/hubot/build-status', (req) ->
+  robot.router.post process.env.JENKINS_NOTIFICATION_ENDPOINT, (req) ->
     data = req.body
     project = data.name
     params = data.build.parameters
@@ -194,13 +194,15 @@ module.exports = (robot) ->
     }
     console.log(build_status)
     if build_status.phase is "FINISHED"
-      build_statuses = robot.brain.get(upstream_build_num) or {}
-      build_statuses['issue_num'] = params.ISSUE
+      build_data = robot.brain.get(upstream_build_num) or {}
+      build_data['issue_num'] = params.ISSUE
+      build_statuses = build_data.statuses or {}
       build_statuses[project] = build_status
+      build_data['statuses'] = build_statuses
 
-      num_builds = Object.keys(build_statuses).length - 1
+      num_builds = Object.keys(build_statuses).length
       console.log("Number of finished builds for upstream build " + upstream_build_num + ": " + num_builds)
-      robot.brain.set upstream_build_num, build_statuses
-      if num_builds is 6
-        updateGithubStatus(upstream_build_num, build_statuses)
+      robot.brain.set upstream_build_num, build_data
+      if num_builds is process.env.NUM_JENKINS_PROJECTS
+        updateGithubStatus(upstream_build_num, build_data)
         robot.brain.remove upstream_build_num
