@@ -72,7 +72,7 @@ The plugin sends a notification in the following JSON format:
       "name":"pstat_selenium_1",
       "url":"job/pstat_ticket_selenium_1/844/",
       "build": {
-        "number":844,
+        "number":"844",
         "phase":"FINISHED",
         "status":"FAILURE",
         "url":"job/pstat_ticket_selenium_1/844/",
@@ -81,7 +81,7 @@ The plugin sends a notification in the following JSON format:
           "ISSUE":"1096",
           "SOURCE_BUILD_NUMBER": "904"
         }
-    	 }
+      }
     }
 
 ### Phase
