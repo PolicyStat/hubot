@@ -185,6 +185,7 @@ module.exports = (robot) ->
   }
 
   robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req) ->
+    console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT}"
     data = req.body
     project = data.name
     params = data.build.parameters
@@ -194,7 +195,6 @@ module.exports = (robot) ->
       'phase': data.build.phase,
       'status': data.build.status
     }
-    console.log "Build status: #{build_status}"
     if build_status.phase is "FINISHED"
       build_data = robot.brain.get(upstream_build_num) or {}
       build_data['issue_num'] = params.ISSUE
