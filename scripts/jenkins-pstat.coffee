@@ -98,13 +98,14 @@ markGithubBranchAsFinished = (upstream_build_num, build_data) ->
   project_num = Object.keys(build_statuses).length
 
   failed_nodes = []
+  success = true
   issue_status = "success"
   for key, value of build_statuses
-    if value.status == "FAILURE"
-      issue_status = "failure"
+    if value.status != "SUCCESS"
+      success = false
       failed_nodes.push(key)
 
-  if issue_status is "failure"
+  if not success
     status_description = "The following downstream projects failed: "
     for node in failed_nodes
       status_description += node + " "
@@ -114,7 +115,7 @@ markGithubBranchAsFinished = (upstream_build_num, build_data) ->
   stateURL = "#{HUBOT_JENKINS_URL}/job/pstat_ticket/#{upstream_build_num}"
   updateGithubBranchStatus({
     branchName: "issue_#{issue_num}",
-    state: issue_status,
+    state: if success then "success" else "failure",
     stateURL: stateURL,
     description: status_description,
   })
