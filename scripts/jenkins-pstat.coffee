@@ -12,7 +12,8 @@
 # ci list - lists Jenkins jobs
 #
 # Forked to make building a pstat_ticket branch less verbose.
-#
+
+util = require 'util'
 
 github = {}
 
@@ -186,7 +187,7 @@ module.exports = (robot) ->
   }
 
   robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req) ->
-    console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT}"
+    console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT} #{util.inspect req}"
     data = req.body
     project = data.name
     params = data.build.parameters
