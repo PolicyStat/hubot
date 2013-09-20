@@ -197,6 +197,8 @@ module.exports = (robot) ->
       'phase': data.build.phase,
       'status': data.build.status
     }
+
+    console.log "Build status: #{build_status}"
     if build_status.phase is "FINISHED"
       build_data = robot.brain.get(upstream_build_num) or {}
       build_data['issue_num'] = params.ISSUE
@@ -206,7 +208,9 @@ module.exports = (robot) ->
 
       num_builds = Object.keys(build_statuses).length
       console.log "Number of finished builds for upstream build #{upstream_build_num}: #{num_builds}"
-      robot.brain.set upstream_build_num, build_data
-      if "#{num_builds}" is JENKINS_NUM_PROJECTS
-        markGithubBranchAsFinished(upstream_build_num, build_data)
-        robot.brain.remove upstream_build_num
+
+      robot.brain.on 'loaded', ->
+        robot.brain.set upstream_build_num, build_data
+        if "#{num_builds}" is JENKINS_NUM_PROJECTS
+          markGithubBranchAsFinished(upstream_build_num, build_data)
+          robot.brain.remove upstream_build_num
