@@ -187,7 +187,7 @@ module.exports = (robot) ->
   }
 
   robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req) ->
-    console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT} #{util.inspect req}"
+    console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT}"
     data = req.body
     project = data.name
     params = data.build.parameters
