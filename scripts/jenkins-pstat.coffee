@@ -208,9 +208,7 @@ module.exports = (robot) ->
 
       num_builds = Object.keys(build_statuses).length
       console.log "Number of finished builds for upstream build #{upstream_build_num}: #{num_builds}"
-
-      robot.brain.on 'loaded', ->
-        robot.brain.set upstream_build_num, build_data
-        if "#{num_builds}" is JENKINS_NUM_PROJECTS
-          markGithubBranchAsFinished(upstream_build_num, build_data)
-          robot.brain.remove upstream_build_num
+      robot.brain.set upstream_build_num, build_data
+      if "#{num_builds}" is JENKINS_NUM_PROJECTS
+        markGithubBranchAsFinished(upstream_build_num, build_data)
+        robot.brain.remove upstream_build_num
