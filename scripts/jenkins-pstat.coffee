@@ -60,7 +60,7 @@ jenkinsBuild = (msg) ->
           msg.send "Jenkins says: #{body}"
 
 
-registerRootJobStarted = (msg, jobUrl, issue, jobName) ->
+registerRootJobStarted = (robot, msg, jobUrl, issue, jobName) ->
   baseUrl = HUBOT_JENKINS_URL
   # We use the job base URL, instead of the URL for the specific run,
   # because we need access to the `downstreamProjects` to know
@@ -81,7 +81,7 @@ registerRootJobStarted = (msg, jobUrl, issue, jobName) ->
       json = JSON.parse(body)
       buildLink = "#{json.url}#{json.nextBuildNumber}"
       msg.send "#{json.displayName} will be: #{buildLink}"
-      storeRootBuildData(json.nextBuildNumber, json.downstreamProjects, issue)
+      storeRootBuildData(robot, json.nextBuildNumber, json.downstreamProjects, issue)
     else
       msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
 
@@ -130,7 +130,7 @@ markGithubBranchAsFinished = (rootBuildNumber, buildData, buildStatuses) ->
   )
 
 
-jenkinsBuildIssue = (msg) ->
+jenkinsBuildIssue = (robot, msg) ->
     baseUrl = HUBOT_JENKINS_URL
     issue = msg.match[1]
     jobName = JENKINS_ROOT_JOB_NAME
@@ -148,12 +148,12 @@ jenkinsBuildIssue = (msg) ->
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 302
           msg.send "Build started for issue #{issue} #{res.headers.location}"
-          registerRootJobStarted(msg, res.headers.location, issue, jobName)
+          registerRootJobStarted(robot, msg, res.headers.location, issue, jobName)
         else
           msg.send "Jenkins says: #{body}"
 
 
-storeRootBuildData = (rootBuildNumber, downstreamProjects, issueNumber) ->
+storeRootBuildData = (robot, rootBuildNumber, downstreamProjects, issueNumber) ->
   # Store the number of downstream jobs and issue number
   buildData = robot.brain.get(rootBuildNumber) or {}
 
@@ -162,7 +162,7 @@ storeRootBuildData = (rootBuildNumber, downstreamProjects, issueNumber) ->
   robot.brain.set rootBuildNumber, buildData
 
 
-getAndStoreRootBuildCommit = (msg, jobName, rootBuildNumber, fullUrl) ->
+getAndStoreRootBuildCommit = (robot, msg, jobName, rootBuildNumber, fullUrl) ->
   # We need to get the SHA for this set of builds one time, after it completes,
   # and associate it with the build number in Hubot's persistent "brain"
   # storage. After that, we tie all of the actions for that build to the same
@@ -189,7 +189,7 @@ getAndStoreRootBuildCommit = (msg, jobName, rootBuildNumber, fullUrl) ->
       console.log "Setting commit_sha to #{sha} for #{jobName} #{rootBuildNumber}"
 
 
-handleFinishedDownstreamJob = (msg, jobName, rootBuildNumber, buildNumber, buildStatus) ->
+handleFinishedDownstreamJob = (robot, msg, jobName, rootBuildNumber, buildNumber, buildStatus) ->
   buildData = robot.brain.get(rootBuildNumber) or {}
   if not BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
     errorMsg = "Root build #{rootBuildNumber} doesn't have required rootBuildData 
