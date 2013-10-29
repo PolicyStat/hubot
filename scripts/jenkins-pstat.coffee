@@ -314,8 +314,8 @@ module.exports = (robot) ->
     fullUrl = build.full_url
 
     buildData = robot.brain.get(rootBuildNumber) or {}
-    if BUILD_DATA.ISSUE_NUMBER in Object.keys(buildData)
-      console.log "Root build data already gathered for #{rootJobName} #{rootBuildNumber}"
+    if BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
+      console.log "Commit SHA already gathered for #{rootJobName} #{rootBuildNumber}"
       return
 
     getAndStoreRootBuildCommit(robot, rootJobName, rootBuildNumber, fullUrl)
