@@ -275,7 +275,7 @@ module.exports = (robot) ->
   }
 
   robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req) ->
-    console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT} #{util.inspect req}"
+    console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT}"
     data = req.body
     jobName = data.name
     rootBuildNumber = data.build.parameters.SOURCE_BUILD_NUMBER
@@ -283,11 +283,12 @@ module.exports = (robot) ->
     buildPhase = data.build.phase
     buildStatus = data.build.status
 
+    console.log "Notification data: #{data}"
     if buildPhase is "FINISHED"
       handleFinishedDownstreamJob(robot, jobName, rootBuildNumber, buildNumber, buildStatus)
 
   robot.router.post JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT, (req) ->
-    console.log "Post received on #{JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT} #{util.inspect req}"
+    console.log "Post received on #{JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT}"
     data = req.body
     rootJobName = data.name
     rootBuildNumber = data.build.number
