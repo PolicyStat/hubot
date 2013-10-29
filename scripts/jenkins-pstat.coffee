@@ -219,7 +219,7 @@ handleFinishedDownstreamJob = (robot, msg, jobName, rootBuildNumber, buildNumber
   robot.brain.set statusesKey, buildStatuses
 
   numFinishedDownstreamJobs = Object.keys(buildStatuses).length
-  console.log "Number of finished builds for upstream 
+  console.log "Number of finished downstream builds from root
    build #{rootBuildNumber}: #{numFinishedDownstreamJobs}"
 
   if "#{numFinishedDownstreamJobs}" is buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT]
