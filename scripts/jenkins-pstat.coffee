@@ -277,10 +277,12 @@ module.exports = (robot) ->
   robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req) ->
     console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT}"
     data = req.body
-    console.log "Notification data: #{data}"
 
     jobName = data.name
     build = data.build
+    if not build
+      console.log "No build argument given. Exiting."
+      return
     console.log "Build #{build}"
     rootBuildNumber = build.parameters.SOURCE_BUILD_NUMBER
     buildNumber = build.number
@@ -294,8 +296,15 @@ module.exports = (robot) ->
     console.log "Post received on #{JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT}"
     data = req.body
     rootJobName = data.name
-    rootBuildNumber = data.build.number
-    fullUrl = data.build.full_url
+    build = data.build
+    if not build
+      console.log "No build argument given. Exiting."
+      return
+    rootBuildNumber = build.number
+    if not rootBuildNumber
+      console.log "No rootBuildNumber argument given. Exiting."
+      return
+    fullUrl = build.full_url
 
     buildData = robot.brain.get(rootBuildNumber) or {}
     if BUILD_DATA.ISSUE_NUMBER in Object.keys(buildData)
