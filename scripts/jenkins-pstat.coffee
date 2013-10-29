@@ -189,10 +189,13 @@ getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl) ->
         console.log "No changeSet found from #{url}"
         return
       items = changeSet.items
-      sha = items[0].commitId
-      buildData[BUILD_DATA.COMMIT_SHA] = items[0].commitId
+      if not items or items.length != 1
+        console.log "Can't set commit_sha. changeSet items not found at #{url}"
+        return
+      commitSHA = items[0].commitId
+      buildData[BUILD_DATA.COMMIT_SHA] = commitSHA
       robot.brain.set rootBuildNumber, buildData
-      console.log "Setting commit_sha to #{sha} for #{jobName} #{rootBuildNumber}"
+      console.log "Setting commit_sha to #{commitSHA} for #{jobName} #{rootBuildNumber}"
 
 
 handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, buildStatus) ->
