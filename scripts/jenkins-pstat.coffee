@@ -292,7 +292,7 @@ module.exports = (robot) ->
     issue: jenkinsBuildIssue,
   }
 
-  robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req) ->
+  robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req, res) ->
     console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT}"
     data = req.body
 
@@ -300,6 +300,7 @@ module.exports = (robot) ->
     build = data.build
     if not build
       console.log "No build argument given. Exiting."
+      res.end "ok"
       return
 
     rootBuildNumber = build.parameters.SOURCE_BUILD_NUMBER
@@ -310,23 +311,30 @@ module.exports = (robot) ->
     if buildPhase is "FINISHED"
       handleFinishedDownstreamJob(robot, jobName, rootBuildNumber, buildNumber, buildStatus)
 
-  robot.router.post JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT, (req) ->
+    res.end "ok"
+
+  robot.router.post JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT, (req, res) ->
     console.log "Post received on #{JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT}"
     data = req.body
     rootJobName = data.name
     build = data.build
     if not build
       console.log "No build argument given. Exiting."
+      res.end "ok"
       return
     rootBuildNumber = build.number
     if not rootBuildNumber
       console.log "No rootBuildNumber argument given. Exiting."
+      res.end "ok"
       return
     fullUrl = build.full_url
 
     buildData = robot.brain.get(rootBuildNumber) or {}
     if BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
       console.log "Commit SHA already gathered for #{rootJobName} #{rootBuildNumber}"
+      res.end "ok"
       return
 
     getAndStoreRootBuildCommit(robot, rootJobName, rootBuildNumber, fullUrl)
+
+    res.end "ok"
