@@ -172,7 +172,7 @@ getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl) ->
   # starts, the results are tied to the actual commit against which the tests
   # were run.
   console.log "getAndStoreRootBuildCommit for #{jobName} #{rootBuildNumber}"
-  url = "#{fullUrl}/api/json?tree=changeSet[items[commitId]]"
+  url = "#{fullUrl}api/json?tree=actions[lastBuiltRevision[SHA1]],result"
   req = robot.http(url)
 
   if HUBOT_JENKINS_AUTH
@@ -184,15 +184,24 @@ getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl) ->
       buildData = robot.brain.get(rootBuildNumber) or {}
       data = JSON.parse(body)
 
-      changeSet = data.changeSet
-      if not changeSet
-        console.log "No changeSet found from #{url}"
+      result = data.result
+      if result != JENKINS_BUILD_STATUS.SUCCESS
+        console.log "Job not successful. Can't get commit hash."
         return
-      items = changeSet.items
-      if not items or items.length != 1
-        console.log "Can't set commit_sha. changeSet items not found at #{url}"
+
+      actions = data.actions
+      if not actions
+        console.log "No actions found from #{url}"
         return
-      commitSHA = items[0].commitId
+
+      commitSHA = null
+      for action in actions
+        if "lastBuiltRevision" in Object.keys(action)
+          commitSHA = action.lastBuiltRevision?.SHA1
+      if not commitSHA
+        console.log "No lastBuiltRevision.SHA1 found at #{url}"
+        return
+
       buildData[BUILD_DATA.COMMIT_SHA] = commitSHA
       robot.brain.set rootBuildNumber, buildData
       console.log "Setting commit_sha to #{commitSHA} for #{jobName} #{rootBuildNumber}"
