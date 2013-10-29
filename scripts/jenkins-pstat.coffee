@@ -71,7 +71,6 @@ registerRootJobStarted = (msg, jobUrl, issue, jobName) ->
     auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
     req.headers Authorization: "Basic #{auth}"
 
-  req.header('Content-Length', 0)
   req.get() (err, res, body) ->
     if err
       errorMessage = "Getting job info from #{url} failed with status: #{err}"
@@ -81,13 +80,6 @@ registerRootJobStarted = (msg, jobUrl, issue, jobName) ->
       json = JSON.parse(body)
       buildLink = "#{json.url}#{json.nextBuildNumber}"
       msg.send "#{json.displayName} will be: #{buildLink}"
-      # Tell github to set the branch repo status to pending
-      updateGithubBranchStatus({
-        branchName: "issue_#{issue}",
-        state: "pending",
-        stateURL: buildLink,
-        description: "Issue #{issue} is running.",
-      })
       storeRootBuildData(json.nextBuildNumber, json.downstreamProjects, issue)
     else
       msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
