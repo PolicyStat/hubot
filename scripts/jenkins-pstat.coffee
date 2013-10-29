@@ -97,9 +97,10 @@ updateGithubBranchStatus = (opts) ->
     github.post githubPostStatusUrl, data, (comment_obj) ->
       console.log "Github branch #{opts.branchName} marked as #{opts.state}."
 
-markGithubBranchAsFinished = (upstream_build_num, build_data) ->
-  console.log "markGithubBranchAsFinished #{upstream_build_num}"
-  issue_num = build_data.issue_num
+
+markGithubBranchAsFinished = (rootBuildNumber, build_data) ->
+  console.log "markGithubBranchAsFinished #{rootBuildNumber}"
+  issueNumber = build_data.issueNumber
   build_statuses = build_data.statuses
   bot_github_repo = github.qualified_repo HUBOT_GITHUB_REPO
 
@@ -118,24 +119,24 @@ markGithubBranchAsFinished = (upstream_build_num, build_data) ->
     for node in failed_nodes
       status_description += node + " "
   else
-    status_description = "Build #{upstream_build_num} succeeded! #{project_num} downstream projects completed successfully."
+    status_description = "Build #{rootBuildNumber} succeeded! #{project_num} downstream projects completed successfully."
 
-  stateURL = "#{HUBOT_JENKINS_URL}/job/pstat_ticket/#{upstream_build_num}"
+  stateURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
   updateGithubBranchStatus({
-    branchName: "issue_#{issue_num}",
+    branchName: "issue_#{issueNumber}",
     state: if success then "success" else "failure",
     stateURL: stateURL,
     description: status_description,
   })
 
 jenkinsBuildIssue = (msg) ->
-    url = HUBOT_JENKINS_URL
+    baseUrl = HUBOT_JENKINS_URL
     issue = msg.match[1]
-    jobName = "pstat_ticket"
+    jobName = JENKINS_ROOT_JOB_NAME
 
-    path = "#{url}/job/#{jobName}/buildWithParameters?ISSUE=#{issue}"
+    url = "#{baseUrl}/job/#{jobName}/buildWithParameters?ISSUE=#{issue}"
 
-    req = msg.http(path)
+    req = msg.http(url)
     if HUBOT_JENKINS_AUTH
       auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
       req.headers Authorization: "Basic #{auth}"
