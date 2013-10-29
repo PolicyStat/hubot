@@ -197,6 +197,13 @@ handleFinishedDownstreamJob = (msg, jobName, rootBuildNumber, buildNumber, build
     console.log errorMsg
     console.log "Current buildData: #{buildData}"
     msg.send errorMsg
+    # TODO: We could recover here by:
+    # 1. Crawling to the parent job and then getting/storing the root job data
+    # 2. After that, kicking off something to crawl the downstream jobs and
+    # actually poll for their statuses, just to catch up with anything we might
+    # have missed. That ability would also go 80% of the way towards building
+    # something that we could run on start to handle any missed notifications
+    # while hubot was down.
     return
 
   statusesKey = "#{rootBuildNumber}_statuses"
