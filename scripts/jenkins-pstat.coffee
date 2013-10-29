@@ -87,7 +87,7 @@ registerRootJobStarted = (robot, msg, jobUrl, issue, jobName) ->
 
 
 updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA) ->
-  console.log "Updating github branch as #{state}"
+  console.log "Updating github branch #{branchName} at #{commitSHA} as #{state}"
   repo = github.qualified_repo HUBOT_GITHUB_REPO
 
   githubPostStatusUrl = "repos/#{repo}/statuses/#{commitSHA}"
@@ -154,6 +154,7 @@ jenkinsBuildIssue = (robot, msg) ->
 
 
 storeRootBuildData = (robot, rootBuildNumber, downstreamProjects, issueNumber) ->
+  console.log "Storing root build data for #{rootBuildNumber}"
   # Store the number of downstream jobs and issue number
   buildData = robot.brain.get(rootBuildNumber) or {}
 
@@ -170,6 +171,7 @@ getAndStoreRootBuildCommit = (robot, msg, jobName, rootBuildNumber, fullUrl) ->
   # different commits. It also ensures that if we add commits after a build
   # starts, the results are tied to the actual commit against which the tests
   # were run.
+  console.log "getAndStoreRootBuildCommit for #{jobName} #{rootBuildNumber}"
   url = "#{fullUrl}/api/json?tree=changeSet[items[commitId]]"
   req = msg.http(url)
 
@@ -182,7 +184,11 @@ getAndStoreRootBuildCommit = (robot, msg, jobName, rootBuildNumber, fullUrl) ->
       buildData = robot.brain.get(rootBuildNumber) or {}
       data = JSON.parse(body)
 
-      items = data.changeSet.items
+      changeSet = data.changeSet
+      if not changeSet:
+        console.log "No changeSet found from #{url}"
+        return
+      items = changeSet.items
       sha = items[0].commitId
       buildData[BUILD_DATA.COMMIT_SHA] = items[0].commitId
       robot.brain.set rootBuildNumber, buildData
@@ -190,6 +196,7 @@ getAndStoreRootBuildCommit = (robot, msg, jobName, rootBuildNumber, fullUrl) ->
 
 
 handleFinishedDownstreamJob = (robot, msg, jobName, rootBuildNumber, buildNumber, buildStatus) ->
+  console.log "handleFinihedDownstreamJob for #{jobName}, #{rootBuildNumber} with status #{buildStatus}"
   buildData = robot.brain.get(rootBuildNumber) or {}
   if not BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
     errorMsg = "Root build #{rootBuildNumber} doesn't have required rootBuildData 
@@ -283,7 +290,7 @@ module.exports = (robot) ->
     if not build
       console.log "No build argument given. Exiting."
       return
-    console.log "Build #{build}"
+
     rootBuildNumber = build.parameters.SOURCE_BUILD_NUMBER
     buildNumber = build.number
     buildPhase = build.phase
