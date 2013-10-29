@@ -260,7 +260,7 @@ module.exports = (robot) ->
   github = require("githubot")(robot)
 
   robot.respond /ci issue ([\d_]+)/i, (msg) ->
-    jenkinsBuildIssue(msg)
+    jenkinsBuildIssue(robot, msg)
 
   robot.respond /ci build ([\w\.\-_]+)/i, (msg) ->
     jenkinsBuild(msg)
