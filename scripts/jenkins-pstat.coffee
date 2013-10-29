@@ -31,6 +31,12 @@ BUILD_DATA = {
   'ISSUE_NUMBER': 'issue_number',
   'DOWNSTREAM_JOBS_COUNT': 'downstream_jobs_count'
 }
+JENKINS_BUILD_STATUS = {
+  'FAILURE': 'FAILURE',
+  'SUCCESS': 'SUCCESS',
+  'ABORTED': 'ABORTED',
+}
+
 
 jenkinsBuild = (msg) ->
     url = HUBOT_JENKINS_URL
