@@ -178,8 +178,6 @@ getAndStoreRootBuildCommit = (msg, jobName, rootBuildNumber, fullUrl) ->
   # different commits. It also ensures that if we add commits after a build
   # starts, the results are tied to the actual commit against which the tests
   # were run.
-
-  # TODO: How do you traverse objects down multiple levels?
   url = "#{fullUrl}/api/json?tree=changeSet[items[commitId]]"
   req = msg.http(url)
 
@@ -192,8 +190,11 @@ getAndStoreRootBuildCommit = (msg, jobName, rootBuildNumber, fullUrl) ->
       buildData = robot.brain.get(rootBuildNumber) or {}
       data = JSON.parse(body)
 
-      buildData[BUILD_DATA.COMMIT_SHA] = data.changeSet.items.commitId
+      items = data.changeSet.items
+      sha = items[0].commitId
+      buildData[BUILD_DATA.COMMIT_SHA] = items[0].commitId
       robot.brain.set rootBuildNumber, buildData
+      console.log "Setting commit_sha to #{sha} for #{jobName} #{rootBuildNumber}"
 
 
 handleFinishedDownstreamJob = (msg, jobName, rootBuildNumber, buildNumber, buildStatus) ->
@@ -271,8 +272,7 @@ module.exports = (robot) ->
     buildStatus = data.build.status
 
     if buildPhase is "FINISHED"
-      # TODO: How do I get myself a `msg` object?
-      handleFinishedDownstreamJob(msg, jobName, rootBuildNumber, buildNumber, buildStatus)
+      handleFinishedDownstreamJob(robot, jobName, rootBuildNumber, buildNumber, buildStatus)
 
   robot.router.post JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT, (req) ->
     console.log "Post received on #{JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT} #{util.inspect req}"
@@ -286,5 +286,4 @@ module.exports = (robot) ->
       console.log "Root build data already gathered for #{rootJobName} #{rootBuildNumber}"
       return
 
-    # TODO: How do I get myself a `msg` object?
-    getAndStoreRootBuildCommit(msg, rootJobName, rootBuildNumber, fullUrl)
+    getAndStoreRootBuildCommit(robot, rootJobName, rootBuildNumber, fullUrl)
