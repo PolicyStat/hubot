@@ -245,7 +245,7 @@ handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, bui
     updateGithubBranchStatus(
       "issue_#{buildData[BUILD_DATA.ISSUE_NUMBER]}"
       "failure",
-      targetUrl,
+      targetURL,
       description,
       buildData[BUILD_DATA.COMMIT_SHA],
     )
