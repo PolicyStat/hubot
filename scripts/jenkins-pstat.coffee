@@ -223,7 +223,7 @@ handleFinishedDownstreamJob = (robot, msg, jobName, rootBuildNumber, buildNumber
     # Even if all of the jobs aren't finished, if this one failed, then we can
     # already mark the build as a failure
     targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
-    description "Build #{buildNumber} of #{jobName} failed"
+    description = "Build #{buildNumber} of #{jobName} failed"
     updateGithubBranchStatus(
       "issue_#{buildData[BUILD_DATA.ISSUE_NUMBER]}"
       "failure",
