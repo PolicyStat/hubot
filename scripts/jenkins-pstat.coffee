@@ -185,7 +185,7 @@ getAndStoreRootBuildCommit = (robot, msg, jobName, rootBuildNumber, fullUrl) ->
       data = JSON.parse(body)
 
       changeSet = data.changeSet
-      if not changeSet:
+      if not changeSet
         console.log "No changeSet found from #{url}"
         return
       items = changeSet.items
