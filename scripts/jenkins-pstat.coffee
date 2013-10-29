@@ -59,6 +59,7 @@ jenkinsBuild = (msg) ->
         else
           msg.send "Jenkins says: #{body}"
 
+
 registerRootJobStarted = (msg, jobUrl, issue, jobName) ->
   baseUrl = HUBOT_JENKINS_URL
   # We use the job base URL, instead of the URL for the specific run,
@@ -85,54 +86,50 @@ registerRootJobStarted = (msg, jobUrl, issue, jobName) ->
       msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
 
 
-updateGithubBranchStatus = (opts) ->
-  console.log "Updating github branch as #{opts.state}"
+updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA) ->
+  console.log "Updating github branch as #{state}"
   repo = github.qualified_repo HUBOT_GITHUB_REPO
-  githubBranchRefsUrl = "repos/#{repo}/git/refs/heads/#{opts.branchName}"
 
-  sha = ""
-  github.get githubBranchRefsUrl, (resp) ->
-    sha = resp.object.sha
-    githubPostStatusUrl = "repos/#{repo}/statuses/#{sha}"
-    data = {
-      state: opts.state,
-      target_url: opts.stateURL,
-      description: opts.description,
-    }
-    github.post githubPostStatusUrl, data, (comment_obj) ->
-      console.log "Github branch #{opts.branchName} marked as #{opts.state}."
+  githubPostStatusUrl = "repos/#{repo}/statuses/#{commitSHA}"
+  data = {
+    state: state,
+    target_url: targetURL,
+    description: description,
+  }
+  github.post githubPostStatusUrl, data, (comment_obj) ->
+    console.log "Github branch #{branchName} marked as #{state}."
 
 
-markGithubBranchAsFinished = (rootBuildNumber, build_data) ->
+markGithubBranchAsFinished = (rootBuildNumber, buildData, buildStatuses) ->
   console.log "markGithubBranchAsFinished #{rootBuildNumber}"
-  issueNumber = build_data.issueNumber
-  build_statuses = build_data.statuses
+  issueNumber = buildData[BUILD_DATA.ISSUE_NUMBER]
   bot_github_repo = github.qualified_repo HUBOT_GITHUB_REPO
 
-  project_num = Object.keys(build_statuses).length
+  downstreamJobsCount = Object.keys(build_statuses).length
 
-  failed_nodes = []
-  success = true
-  issue_status = "success"
-  for key, value of build_statuses
-    if value.status != "SUCCESS"
-      success = false
-      failed_nodes.push(key)
+  failedJobNames = []
+  allSucceeded = true
+  for jobName, jobStatus of buildStatuses
+    if jobStatus != JENKINS_BUILD_STATUS.SUCCESS
+      allSucceeded = false
+      failedJobNames.push(jobName)
 
-  if not success
-    status_description = "The following downstream projects failed: "
-    for node in failed_nodes
-      status_description += node + " "
+  if not allSucceeded
+    statusDescription = "The following downstream projects failed: "
+    for failedJobName in failedJobNames
+      statusDescription += " #{failedJobName}"
   else
-    status_description = "Build #{rootBuildNumber} succeeded! #{project_num} downstream projects completed successfully."
+    statusDescription = "Build #{rootBuildNumber} succeeded! #{downstreamJobsCount} downstream projects completed successfully."
 
-  stateURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
-  updateGithubBranchStatus({
-    branchName: "issue_#{issueNumber}",
-    state: if success then "success" else "failure",
-    stateURL: stateURL,
-    description: status_description,
-  })
+  targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
+  updateGithubBranchStatus(
+    "issue_#{issueNumber}",
+    if allSucceeded then "success" else "failure",
+    targetURL,
+    statusDescription,
+    buildData[BUILD_DATA.COMMIT_SHA],
+  )
+
 
 jenkinsBuildIssue = (msg) ->
     baseUrl = HUBOT_JENKINS_URL
@@ -152,9 +149,7 @@ jenkinsBuildIssue = (msg) ->
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 302
           msg.send "Build started for issue #{issue} #{res.headers.location}"
-
           registerRootJobStarted(msg, res.headers.location, issue, jobName)
-
         else
           msg.send "Jenkins says: #{body}"
 
@@ -215,6 +210,7 @@ handleFinishedDownstreamJob = (msg, jobName, rootBuildNumber, buildNumber, build
    build #{rootBuildNumber}: #{numFinishedDownstreamJobs}"
 
   if "#{numFinishedDownstreamJobs}" is buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT]
+    markGithubBranchAsFinished(rootBuildNumber, buildData, buildStatuses)
     markGithubBranchAsFinished(rootBuildNumber, buildData)
     robot.brain.remove rootBuildNumber
     robot.brain.remove statusesKey
