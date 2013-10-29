@@ -163,7 +163,7 @@ storeRootBuildData = (robot, rootBuildNumber, downstreamProjects, issueNumber) -
   robot.brain.set rootBuildNumber, buildData
 
 
-getAndStoreRootBuildCommit = (robot, msg, jobName, rootBuildNumber, fullUrl) ->
+getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl) ->
   # We need to get the SHA for this set of builds one time, after it completes,
   # and associate it with the build number in Hubot's persistent "brain"
   # storage. After that, we tie all of the actions for that build to the same
@@ -173,7 +173,7 @@ getAndStoreRootBuildCommit = (robot, msg, jobName, rootBuildNumber, fullUrl) ->
   # were run.
   console.log "getAndStoreRootBuildCommit for #{jobName} #{rootBuildNumber}"
   url = "#{fullUrl}/api/json?tree=changeSet[items[commitId]]"
-  req = msg.http(url)
+  req = robot.http(url)
 
   if HUBOT_JENKINS_AUTH
     auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
@@ -195,7 +195,7 @@ getAndStoreRootBuildCommit = (robot, msg, jobName, rootBuildNumber, fullUrl) ->
       console.log "Setting commit_sha to #{sha} for #{jobName} #{rootBuildNumber}"
 
 
-handleFinishedDownstreamJob = (robot, msg, jobName, rootBuildNumber, buildNumber, buildStatus) ->
+handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, buildStatus) ->
   console.log "handleFinihedDownstreamJob for #{jobName}, #{rootBuildNumber} with status #{buildStatus}"
   buildData = robot.brain.get(rootBuildNumber) or {}
   if not BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
@@ -203,7 +203,6 @@ handleFinishedDownstreamJob = (robot, msg, jobName, rootBuildNumber, buildNumber
      to handle #{jobName} #{buildNumber}"
     console.log errorMsg
     console.log "Current buildData: #{buildData}"
-    msg.send errorMsg
     # TODO: We could recover here by:
     # 1. Crawling to the parent job and then getting/storing the root job data
     # 2. After that, kicking off something to crawl the downstream jobs and
