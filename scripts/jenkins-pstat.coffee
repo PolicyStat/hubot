@@ -103,9 +103,8 @@ updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA
 markGithubBranchAsFinished = (rootBuildNumber, buildData, buildStatuses) ->
   console.log "markGithubBranchAsFinished #{rootBuildNumber}"
   issueNumber = buildData[BUILD_DATA.ISSUE_NUMBER]
-  bot_github_repo = github.qualified_repo HUBOT_GITHUB_REPO
 
-  downstreamJobsCount = Object.keys(build_statuses).length
+  downstreamJobsCount = Object.keys(buildStatuses).length
 
   failedJobNames = []
   allSucceeded = true
