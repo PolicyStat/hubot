@@ -238,17 +238,18 @@ handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, bui
     robot.brain.remove rootBuildNumber
     robot.brain.remove statusesKey
   else
-    # Even if all of the jobs aren't finished, if this one failed, then we can
-    # already mark the build as a failure
-    targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
-    description = "Build #{buildNumber} of #{jobName} failed"
-    updateGithubBranchStatus(
-      "issue_#{buildData[BUILD_DATA.ISSUE_NUMBER]}"
-      "failure",
-      targetURL,
-      description,
-      buildData[BUILD_DATA.COMMIT_SHA],
-    )
+    if buildStatus in [JENKINS_BUILD_STATUS.FAILURE, JENKINS_BUILD_STATUS.ABORTED]
+      # This job failed. Even though all of the downstream jobs aren't finished,
+      # we can already mark the build as a failure.
+      targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
+      description = "Build #{buildNumber} of #{jobName} failed"
+      updateGithubBranchStatus(
+        "issue_#{buildData[BUILD_DATA.ISSUE_NUMBER]}"
+        "failure",
+        targetURL,
+        description,
+        buildData[BUILD_DATA.COMMIT_SHA],
+      )
 
 
 jenkinsList = (msg) ->
