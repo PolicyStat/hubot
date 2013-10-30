@@ -238,7 +238,7 @@ handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, bui
     robot.brain.remove rootBuildNumber
     robot.brain.remove statusesKey
   else
-    if buildStatus in [JENKINS_BUILD_STATUS.FAILURE, JENKINS_BUILD_STATUS.ABORTED]
+    if buildStatus is JENKINS_BUILD_STATUS.FAILURE
       # This job failed. Even though all of the downstream jobs aren't finished,
       # we can already mark the build as a failure.
       targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
