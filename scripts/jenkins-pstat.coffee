@@ -21,9 +21,22 @@ HUBOT_JENKINS_URL = process.env.HUBOT_JENKINS_URL
 HUBOT_JENKINS_AUTH = process.env.HUBOT_JENKINS_AUTH
 HUBOT_JENKINS_URL = process.env.HUBOT_JENKINS_URL
 HUBOT_GITHUB_REPO = process.env.HUBOT_GITHUB_REPO
-JENKINS_NOTIFICATION_ENDPOINT = process.env.JENKINS_NOTIFICATION_ENDPOINT
 
-JENKINS_NUM_PROJECTS = process.env.JENKINS_NUM_PROJECTS or 1
+JENKINS_NOTIFICATION_ENDPOINT = process.env.JENKINS_NOTIFICATION_ENDPOINT or "/hubot/build-status"
+JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT = process.env.JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT or "/hubot/root-build-status"
+JENKINS_ROOT_JOB_NAME = process.env.JENKINS_ROOT_JOB_NAME or "pstat_ticket"
+
+BUILD_DATA = {
+  'COMMIT_SHA': 'commit_SHA',
+  'ISSUE_NUMBER': 'issue_number',
+  'DOWNSTREAM_JOBS_COUNT': 'downstream_jobs_count'
+}
+JENKINS_BUILD_STATUS = {
+  'FAILURE': 'FAILURE',
+  'SUCCESS': 'SUCCESS',
+  'ABORTED': 'ABORTED',
+}
+
 
 jenkinsBuild = (msg) ->
     url = HUBOT_JENKINS_URL
@@ -46,89 +59,85 @@ jenkinsBuild = (msg) ->
         else
           msg.send "Jenkins says: #{body}"
 
-notifyGithubOfJob = (msg, jobUrl, issue) ->
-    # Now get the downstreamProjects that this build will trigger
-    path = "#{jobUrl}/api/json?tree=url,nextBuildNumber,displayName"
-    req = msg.http(path)
-    if HUBOT_JENKINS_AUTH
-      auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
-      req.headers Authorization: "Basic #{auth}"
 
-    req.header('Content-Length', 0)
-    req.get() (err, res, body) ->
-        if err
-          errorMessage = "Getting job info from #{jobUrl} failed with status: #{err}"
-          console.log(errorMessage)
-          msg.send errorMessage
-        else if res.statusCode == 200
-          json = JSON.parse(body)
-          buildLink = "#{json.url}#{json.nextBuildNumber}"
-          msg.send "#{json.displayName} will be: #{buildLink}"
-          updateGithubBranchStatus({
-            branchName: "issue_#{issue}",
-            state: "pending",
-            stateURL: buildLink,
-            description: "Issue #{issue} is running.",
-          })
-        else
-          msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
+registerRootJobStarted = (robot, msg, jobUrl, issue, jobName) ->
+  baseUrl = HUBOT_JENKINS_URL
+  # We use the job base URL, instead of the URL for the specific run,
+  # because we need access to the `downstreamProjects` to know
+  # when all of the downstream jobs are actually finished
+  url = "#{baseUrl}/job/#{jobName}/api/json?tree=url,downstreamProjects,nextBuildNumber,displayName"
+  req = msg.http(url)
 
-updateGithubBranchStatus = (opts) ->
-  console.log "Updating github branch as #{opts.state}"
+  if HUBOT_JENKINS_AUTH
+    auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
+    req.headers Authorization: "Basic #{auth}"
+
+  req.get() (err, res, body) ->
+    if err
+      errorMessage = "Getting job info from #{url} failed with status: #{err}"
+      console.log(errorMessage)
+      msg.send errorMessage
+    else if res.statusCode == 200
+      json = JSON.parse(body)
+      buildLink = "#{json.url}#{json.nextBuildNumber}"
+      msg.send "#{json.displayName} will be: #{buildLink}"
+      storeRootBuildData(robot, json.nextBuildNumber, json.downstreamProjects, issue)
+    else
+      msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
+
+
+updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA) ->
+  console.log "Updating github branch #{branchName} at #{commitSHA} as #{state}"
   repo = github.qualified_repo HUBOT_GITHUB_REPO
-  githubBranchRefsUrl = "repos/#{repo}/git/refs/heads/#{opts.branchName}"
 
-  sha = ""
-  github.get githubBranchRefsUrl, (resp) ->
-    sha = resp.object.sha
-    githubPostStatusUrl = "repos/#{repo}/statuses/#{sha}"
-    data = {
-      state: opts.state,
-      target_url: opts.stateURL,
-      description: opts.description,
-    }
-    github.post githubPostStatusUrl, data, (comment_obj) ->
-      console.log "Github branch #{opts.branchName} marked as #{opts.state}."
+  githubPostStatusUrl = "repos/#{repo}/statuses/#{commitSHA}"
+  data = {
+    state: state,
+    target_url: targetURL,
+    description: description,
+  }
+  github.post githubPostStatusUrl, data, (comment_obj) ->
+    console.log "Github branch #{branchName} marked as #{state}."
 
-markGithubBranchAsFinished = (upstream_build_num, build_data) ->
-  console.log "markGithubBranchAsFinished #{upstream_build_num}"
-  issue_num = build_data.issue_num
-  build_statuses = build_data.statuses
-  bot_github_repo = github.qualified_repo HUBOT_GITHUB_REPO
 
-  project_num = Object.keys(build_statuses).length
+markGithubBranchAsFinished = (rootBuildNumber, buildData, buildStatuses) ->
+  console.log "markGithubBranchAsFinished #{rootBuildNumber}"
+  issueNumber = buildData[BUILD_DATA.ISSUE_NUMBER]
 
-  failed_nodes = []
-  success = true
-  issue_status = "success"
-  for key, value of build_statuses
-    if value.status != "SUCCESS"
-      success = false
-      failed_nodes.push(key)
+  downstreamJobsCount = Object.keys(buildStatuses).length
 
-  if not success
-    status_description = "The following downstream projects failed: "
-    for node in failed_nodes
-      status_description += node + " "
+  failedJobNames = []
+  allSucceeded = true
+  for jobName, jobStatus of buildStatuses
+    if jobStatus != JENKINS_BUILD_STATUS.SUCCESS
+      allSucceeded = false
+      failedJobNames.push(jobName)
+
+  if not allSucceeded
+    statusDescription = "The following downstream projects failed: "
+    for failedJobName in failedJobNames
+      statusDescription += " #{failedJobName}"
   else
-    status_description = "Build #{upstream_build_num} succeeded! #{project_num} downstream projects completed successfully."
+    statusDescription = "Build #{rootBuildNumber} succeeded! #{downstreamJobsCount} downstream projects completed successfully."
 
-  stateURL = "#{HUBOT_JENKINS_URL}/job/pstat_ticket/#{upstream_build_num}"
-  updateGithubBranchStatus({
-    branchName: "issue_#{issue_num}",
-    state: if success then "success" else "failure",
-    stateURL: stateURL,
-    description: status_description,
-  })
+  targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
+  updateGithubBranchStatus(
+    "issue_#{issueNumber}",
+    if allSucceeded then "success" else "failure",
+    targetURL,
+    statusDescription,
+    buildData[BUILD_DATA.COMMIT_SHA],
+  )
 
-jenkinsBuildIssue = (msg) ->
-    url = HUBOT_JENKINS_URL
+
+jenkinsBuildIssue = (robot, msg) ->
+    baseUrl = HUBOT_JENKINS_URL
     issue = msg.match[1]
-    jobName = "pstat_ticket"
+    jobName = JENKINS_ROOT_JOB_NAME
 
-    path = "#{url}/job/#{jobName}/buildWithParameters?ISSUE=#{issue}"
+    url = "#{baseUrl}/job/#{jobName}/buildWithParameters?ISSUE=#{issue}"
 
-    req = msg.http(path)
+    req = msg.http(url)
     if HUBOT_JENKINS_AUTH
       auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
       req.headers Authorization: "Basic #{auth}"
@@ -139,11 +148,109 @@ jenkinsBuildIssue = (msg) ->
           msg.send "Jenkins says: #{err}"
         else if res.statusCode == 302
           msg.send "Build started for issue #{issue} #{res.headers.location}"
-
-          notifyGithubOfJob(msg, res.headers.location, issue)
-
+          registerRootJobStarted(robot, msg, res.headers.location, issue, jobName)
         else
           msg.send "Jenkins says: #{body}"
+
+
+storeRootBuildData = (robot, rootBuildNumber, downstreamProjects, issueNumber) ->
+  console.log "Storing root build data for #{rootBuildNumber}"
+  # Store the number of downstream jobs and issue number
+  buildData = robot.brain.get(rootBuildNumber) or {}
+
+  buildData[BUILD_DATA.ISSUE_NUMBER] = issueNumber
+  buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT] = downstreamProjects.length
+  robot.brain.set rootBuildNumber, buildData
+
+
+getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl) ->
+  # We need to get the SHA for this set of builds one time, after it completes,
+  # and associate it with the build number in Hubot's persistent "brain"
+  # storage. After that, we tie all of the actions for that build to the same
+  # SHA. This lets us run multiple simultaneous builds against a branch for
+  # different commits. It also ensures that if we add commits after a build
+  # starts, the results are tied to the actual commit against which the tests
+  # were run.
+  console.log "getAndStoreRootBuildCommit for #{jobName} #{rootBuildNumber}"
+  url = "#{fullUrl}api/json?tree=actions[lastBuiltRevision[SHA1]],result"
+  req = robot.http(url)
+
+  if HUBOT_JENKINS_AUTH
+    auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
+    req.headers Authorization: "Basic #{auth}"
+
+  req.get() (err, res, body) ->
+    if res.statusCode == 200
+      buildData = robot.brain.get(rootBuildNumber) or {}
+      data = JSON.parse(body)
+
+      result = data.result
+      if result != JENKINS_BUILD_STATUS.SUCCESS
+        console.log "Job not successful. Can't get commit hash."
+        return
+
+      actions = data.actions
+      if not actions
+        console.log "No actions found from #{url}"
+        return
+
+      commitSHA = null
+      for action in actions
+        if "lastBuiltRevision" in Object.keys(action)
+          commitSHA = action.lastBuiltRevision?.SHA1
+      if not commitSHA
+        console.log "No lastBuiltRevision.SHA1 found at #{url}"
+        return
+
+      buildData[BUILD_DATA.COMMIT_SHA] = commitSHA
+      robot.brain.set rootBuildNumber, buildData
+      console.log "Setting commit_sha to #{commitSHA} for #{jobName} #{rootBuildNumber}"
+
+
+handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, buildStatus) ->
+  console.log "handleFinihedDownstreamJob for #{jobName}, #{rootBuildNumber} with status #{buildStatus}"
+  buildData = robot.brain.get(rootBuildNumber) or {}
+  if not BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
+    errorMsg = "Root build #{rootBuildNumber} doesn't have required rootBuildData 
+     to handle #{jobName} #{buildNumber}"
+    console.log errorMsg
+    console.log "Current buildData: #{buildData}"
+    # TODO: We could recover here by:
+    # 1. Crawling to the parent job and then getting/storing the root job data
+    # 2. After that, kicking off something to crawl the downstream jobs and
+    # actually poll for their statuses, just to catch up with anything we might
+    # have missed. That ability would also go 80% of the way towards building
+    # something that we could run on start to handle any missed notifications
+    # while hubot was down.
+    return
+
+  statusesKey = "#{rootBuildNumber}_statuses"
+  buildStatuses = robot.brain.get(statusesKey) or {}
+  buildStatuses[jobName] = buildStatus
+  robot.brain.set statusesKey, buildStatuses
+
+  numFinishedDownstreamJobs = Object.keys(buildStatuses).length
+  console.log "Number of finished downstream builds from root
+   build #{rootBuildNumber}: #{numFinishedDownstreamJobs}"
+
+  if "#{numFinishedDownstreamJobs}" is buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT]
+    markGithubBranchAsFinished(rootBuildNumber, buildData, buildStatuses)
+    robot.brain.remove rootBuildNumber
+    robot.brain.remove statusesKey
+  else
+    if buildStatus is JENKINS_BUILD_STATUS.FAILURE
+      # This job failed. Even though all of the downstream jobs aren't finished,
+      # we can already mark the build as a failure.
+      targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
+      description = "Build #{buildNumber} of #{jobName} failed"
+      updateGithubBranchStatus(
+        "issue_#{buildData[BUILD_DATA.ISSUE_NUMBER]}"
+        "failure",
+        targetURL,
+        description,
+        buildData[BUILD_DATA.COMMIT_SHA],
+      )
+
 
 jenkinsList = (msg) ->
     url = HUBOT_JENKINS_URL
@@ -172,7 +279,7 @@ module.exports = (robot) ->
   github = require("githubot")(robot)
 
   robot.respond /ci issue ([\d_]+)/i, (msg) ->
-    jenkinsBuildIssue(msg)
+    jenkinsBuildIssue(robot, msg)
 
   robot.respond /ci build ([\w\.\-_]+)/i, (msg) ->
     jenkinsBuild(msg)
@@ -186,27 +293,49 @@ module.exports = (robot) ->
     issue: jenkinsBuildIssue,
   }
 
-  robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req) ->
-    console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT} #{util.inspect req}"
+  robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req, res) ->
+    console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT}"
     data = req.body
-    project = data.name
-    params = data.build.parameters
-    upstream_build_num = params.SOURCE_BUILD_NUMBER
-    build_status = {
-      'build_num': data.build.number,
-      'phase': data.build.phase,
-      'status': data.build.status
-    }
-    if build_status.phase is "FINISHED"
-      build_data = robot.brain.get(upstream_build_num) or {}
-      build_data['issue_num'] = params.ISSUE
-      build_statuses = build_data.statuses or {}
-      build_statuses[project] = build_status
-      build_data['statuses'] = build_statuses
 
-      num_builds = Object.keys(build_statuses).length
-      console.log "Number of finished builds for upstream build #{upstream_build_num}: #{num_builds}"
-      robot.brain.set upstream_build_num, build_data
-      if "#{num_builds}" is JENKINS_NUM_PROJECTS
-        markGithubBranchAsFinished(upstream_build_num, build_data)
-        robot.brain.remove upstream_build_num
+    jobName = data.name
+    build = data.build
+    if not build
+      console.log "No build argument given. Exiting."
+      res.end "ok"
+      return
+
+    rootBuildNumber = build.parameters.SOURCE_BUILD_NUMBER
+    buildNumber = build.number
+    buildPhase = build.phase
+    buildStatus = build.status
+
+    if buildPhase is "FINISHED"
+      handleFinishedDownstreamJob(robot, jobName, rootBuildNumber, buildNumber, buildStatus)
+
+    res.end "ok"
+
+  robot.router.post JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT, (req, res) ->
+    console.log "Post received on #{JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT}"
+    data = req.body
+    rootJobName = data.name
+    build = data.build
+    if not build
+      console.log "No build argument given. Exiting."
+      res.end "ok"
+      return
+    rootBuildNumber = build.number
+    if not rootBuildNumber
+      console.log "No rootBuildNumber argument given. Exiting."
+      res.end "ok"
+      return
+    fullUrl = build.full_url
+
+    buildData = robot.brain.get(rootBuildNumber) or {}
+    if BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
+      console.log "Commit SHA already gathered for #{rootJobName} #{rootBuildNumber}"
+      res.end "ok"
+      return
+
+    getAndStoreRootBuildCommit(robot, rootJobName, rootBuildNumber, fullUrl)
+
+    res.end "ok"
