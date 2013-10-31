@@ -250,7 +250,7 @@ handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, bui
   console.log "Number of finished downstream builds from root
    build #{rootBuildNumber}: #{numFinishedDownstreamJobs}"
 
-  if "#{numFinishedDownstreamJobs}" is buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT]
+  if numFinishedDownstreamJobs is buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT]
     markGithubBranchAsFinished(rootBuildNumber, buildData, buildStatuses)
     robot.brain.remove rootBuildNumber
     robot.brain.remove statusesKey
