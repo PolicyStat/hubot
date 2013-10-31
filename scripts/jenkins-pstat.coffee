@@ -216,6 +216,8 @@ getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl) ->
       robot.brain.set rootBuildNumber, buildData
       console.log "Setting commit_sha to #{commitSHA} for #{jobName} #{rootBuildNumber}"
 
+      targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
+      description = "Build #{buildNumber} is running"
       updateGithubBranchStatus(
         "issue_#{buildData[BUILD_DATA.ISSUE_NUMBER]}"
         GITHUB_REPO_STATUS.PENDING,
