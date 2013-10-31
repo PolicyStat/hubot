@@ -30,6 +30,7 @@ BUILD_DATA = {
   'COMMIT_SHA': 'commit_SHA',
   'ISSUE_NUMBER': 'issue_number',
   'DOWNSTREAM_JOBS_COUNT': 'downstream_jobs_count'
+  'MARKED_AS_FINISHED': 'marked_as_finished'
 }
 JENKINS_BUILD_STATUS = {
   'FAILURE': 'FAILURE',
@@ -225,7 +226,7 @@ getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl) ->
 
 
 handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, buildStatus) ->
-  console.log "handleFinihedDownstreamJob for #{jobName}, #{rootBuildNumber} with status #{buildStatus}"
+  console.log "handleFinishedDownstreamJob for #{jobName}, #{rootBuildNumber} with status #{buildStatus}"
   buildData = robot.brain.get(rootBuildNumber) or {}
   if not BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
     errorMsg = "Error: Root build #{rootBuildNumber} doesn't have required rootBuildData 
@@ -252,8 +253,8 @@ handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, bui
 
   if numFinishedDownstreamJobs is buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT]
     markGithubBranchAsFinished(rootBuildNumber, buildData, buildStatuses)
-    robot.brain.remove rootBuildNumber
-    robot.brain.remove statusesKey
+    buildData[BUILD_DATA.MARKED_AS_FINISHED] = true
+    robot.brain.set rootBuildNumber, buildData
   else
     if buildStatus is JENKINS_BUILD_STATUS.FAILURE
       # This job failed. Even though all of the downstream jobs aren't finished,
