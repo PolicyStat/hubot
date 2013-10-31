@@ -36,6 +36,15 @@ JENKINS_BUILD_STATUS = {
   'SUCCESS': 'SUCCESS',
   'ABORTED': 'ABORTED',
 }
+JENKINS_BUILD_PHASE = {
+  'FINISHED': 'FINISHED',
+  'STARTED': 'STARTED',
+}
+GITHUB_REPO_STATUS = {
+  'PENDING': 'pending',
+  'FAILURE': 'failure',
+  'SUCCESS': 'success',
+}
 
 
 jenkinsBuild = (msg) ->
@@ -123,7 +132,7 @@ markGithubBranchAsFinished = (rootBuildNumber, buildData, buildStatuses) ->
   targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
   updateGithubBranchStatus(
     "issue_#{issueNumber}",
-    if allSucceeded then "success" else "failure",
+    if allSucceeded then GITHUB_REPO_STATUS.SUCCESS else GITHUB_REPO_STATUS.FAILURE,
     targetURL,
     statusDescription,
     buildData[BUILD_DATA.COMMIT_SHA],
@@ -206,12 +215,20 @@ getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl) ->
       robot.brain.set rootBuildNumber, buildData
       console.log "Setting commit_sha to #{commitSHA} for #{jobName} #{rootBuildNumber}"
 
+      updateGithubBranchStatus(
+        "issue_#{buildData[BUILD_DATA.ISSUE_NUMBER]}"
+        GITHUB_REPO_STATUS.PENDING,
+        targetURL,
+        description,
+        buildData[BUILD_DATA.COMMIT_SHA],
+      )
+
 
 handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, buildStatus) ->
   console.log "handleFinihedDownstreamJob for #{jobName}, #{rootBuildNumber} with status #{buildStatus}"
   buildData = robot.brain.get(rootBuildNumber) or {}
   if not BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
-    errorMsg = "Root build #{rootBuildNumber} doesn't have required rootBuildData 
+    errorMsg = "Error: Root build #{rootBuildNumber} doesn't have required rootBuildData 
      to handle #{jobName} #{buildNumber}"
     console.log errorMsg
     console.log "Current buildData: #{buildData}"
@@ -245,7 +262,7 @@ handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, bui
       description = "Build #{buildNumber} of #{jobName} failed"
       updateGithubBranchStatus(
         "issue_#{buildData[BUILD_DATA.ISSUE_NUMBER]}"
-        "failure",
+        GITHUB_REPO_STATUS.FAILURE,
         targetURL,
         description,
         buildData[BUILD_DATA.COMMIT_SHA],
@@ -309,7 +326,7 @@ module.exports = (robot) ->
     buildPhase = build.phase
     buildStatus = build.status
 
-    if buildPhase is "FINISHED"
+    if buildPhase is JENKINS_BUILD_PHASE.FINISHED
       handleFinishedDownstreamJob(robot, jobName, rootBuildNumber, buildNumber, buildStatus)
 
     res.end "ok"
