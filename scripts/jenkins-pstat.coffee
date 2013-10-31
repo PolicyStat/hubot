@@ -296,6 +296,11 @@ jenkinsList = (msg) ->
 module.exports = (robot) ->
   github = require("githubot")(robot)
 
+  github.handleErrors (response) ->
+    console.log "Oh noes! A github request returned #{response.statusCode}"
+    console.log "and error message: #{response.error}"
+    console.log "and body: #{response.body}"
+
   robot.respond /ci issue ([\d_]+)/i, (msg) ->
     jenkinsBuildIssue(robot, msg)
 
