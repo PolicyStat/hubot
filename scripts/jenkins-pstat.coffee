@@ -47,6 +47,8 @@ GITHUB_REPO_STATUS = {
   'SUCCESS': 'success',
 }
 
+sendMessageToHipchatRooms = (robot, message) ->
+    robot.messageRoom process.env.HUBOT_HIPCHAT_ROOMS, message
 
 jenkinsBuild = (msg) ->
     url = HUBOT_JENKINS_URL
@@ -70,13 +72,13 @@ jenkinsBuild = (msg) ->
           msg.send "Jenkins says: #{body}"
 
 
-registerRootJobStarted = (robot, msg, jobUrl, issue, jobName) ->
+registerRootJobStarted = (robot, jobUrl, issue, jobName, number) ->
   baseUrl = HUBOT_JENKINS_URL
   # We use the job base URL, instead of the URL for the specific run,
   # because we need access to the `downstreamProjects` to know
   # when all of the downstream jobs are actually finished
-  url = "#{baseUrl}/job/#{jobName}/api/json?tree=url,downstreamProjects,nextBuildNumber,displayName"
-  req = msg.http(url)
+  url = "#{baseUrl}/job/#{jobName}/api/json?tree=url,downstreamProjects"
+  req = robot.http(url)
 
   if HUBOT_JENKINS_AUTH
     auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
@@ -85,15 +87,15 @@ registerRootJobStarted = (robot, msg, jobUrl, issue, jobName) ->
   req.get() (err, res, body) ->
     if err
       errorMessage = "Getting job info from #{url} failed with status: #{err}"
-      console.log(errorMessage)
-      msg.send errorMessage
+      console.log errorMessage
+      sendMessageToHipchatRooms robot, errorMessage
     else if res.statusCode == 200
       json = JSON.parse(body)
-      buildLink = "#{json.url}#{json.nextBuildNumber}"
-      msg.send "#{json.displayName} will be: #{buildLink}"
-      storeRootBuildData(robot, json.nextBuildNumber, json.downstreamProjects, issue)
+      numberOfDownstreamJobs = json.downstreamProjects.length
+      storeRootBuildData(robot, number, numberOfDownstreamJobs, issue)
     else
-      msg.send "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
+      message = "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
+      sendMessageToHipchatRooms robot, message
 
 
 updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA) ->
@@ -155,25 +157,24 @@ jenkinsBuildIssue = (robot, msg) ->
     req.header('Content-Length', 0)
     req.post() (err, res, body) ->
         if err
-          msg.send "Jenkins says: #{err}"
-        else if res.statusCode == 302
-          msg.send "Build started for issue #{issue} #{res.headers.location}"
-          registerRootJobStarted(robot, msg, res.headers.location, issue, jobName)
+          msg.send "Jenkins reported an error: #{err}"
+        else if res.statusCode == 201
+          msg.send "Issue #{issue} has been queued"
         else
-          msg.send "Jenkins says: #{body}"
+          msg.send "Jenkins responded with status code #{res.statusCode}"
 
 
-storeRootBuildData = (robot, rootBuildNumber, downstreamProjects, issueNumber) ->
+storeRootBuildData = (robot, rootBuildNumber, numberOfDownstreamJobs, issueNumber) ->
   console.log "Storing root build data for #{rootBuildNumber}"
   # Store the number of downstream jobs and issue number
   buildData = robot.brain.get(rootBuildNumber) or {}
 
   buildData[BUILD_DATA.ISSUE_NUMBER] = issueNumber
-  buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT] = downstreamProjects.length
+  buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT] = numberOfDownstreamJobs
   robot.brain.set rootBuildNumber, buildData
 
 
-getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl) ->
+getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl, issue) ->
   # We need to get the SHA for this set of builds one time, after it completes,
   # and associate it with the build number in Hubot's persistent "brain"
   # storage. After that, we tie all of the actions for that build to the same
@@ -214,16 +215,19 @@ getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl) ->
 
       buildData[BUILD_DATA.COMMIT_SHA] = commitSHA
       robot.brain.set rootBuildNumber, buildData
-      console.log "Setting commit_sha to #{commitSHA} for #{jobName} #{rootBuildNumber}"
+      console.log "Updated commit_sha for #{jobName} #{rootBuildNumber} to #{commitSHA}"
+
+      message = "#{jobName} completed successfully for issue #{issue} (#{commitSHA[...8]})."
+      sendMessageToHipchatRooms robot, message
 
       targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
       description = "#{jobName} #{rootBuildNumber} is running"
       updateGithubBranchStatus(
-        "issue_#{buildData[BUILD_DATA.ISSUE_NUMBER]}"
+        "issue_#{issue}"
         GITHUB_REPO_STATUS.PENDING,
         targetURL,
         description,
-        buildData[BUILD_DATA.COMMIT_SHA],
+        commitSHA,
       )
 
 
@@ -343,24 +347,32 @@ module.exports = (robot) ->
     console.log "Post received on #{JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT}"
     data = req.body
     rootJobName = data.name
+
     build = data.build
     if not build
       console.log "No build argument given. Exiting."
       res.end "ok"
       return
+
     rootBuildNumber = build.number
     if not rootBuildNumber
       console.log "No rootBuildNumber argument given. Exiting."
       res.end "ok"
       return
-    fullUrl = build.full_url
 
-    buildData = robot.brain.get(rootBuildNumber) or {}
-    if BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
-      console.log "Commit SHA already gathered for #{rootJobName} #{rootBuildNumber}"
+    fullUrl = build.full_url
+    issue = build.parameters.ISSUE
+    if not issue
+      console.log "No parameters.ISSUE argument given. Exiting."
       res.end "ok"
       return
 
-    getAndStoreRootBuildCommit(robot, rootJobName, rootBuildNumber, fullUrl)
+    if build.phase is JENKINS_BUILD_PHASE.STARTED
+      message = "Tests for issue ##{issue} has started: #{fullUrl}"
+      sendMessageToHipchatRooms robot, message
+
+    else if build.phase is JENKINS_BUILD_PHASE.FINISHED and build.status is JENKINS_BUILD_STATUS.SUCCESS
+      registerRootJobStarted(robot, fullUrl, issue, rootJobName, rootBuildNumber)
+      getAndStoreRootBuildCommit(robot, rootJobName, rootBuildNumber, fullUrl, issue)
 
     res.end "ok"
