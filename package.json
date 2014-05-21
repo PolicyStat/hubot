@@ -25,7 +25,7 @@
 
   "dependencies": {
     "hubot":         "2.6.1",
-    "hubot-scripts": "2.5.2",
+    "hubot-scripts": "2.5.14",
     "hubot-hipchat": "git://github.com/PolicyStat/hubot-hipchat.git#e1ec33ff40f00ea31a156c45145d3bf27b21deb6",
     "scraper":       "0.0.9",
     "optparse":      "1.0.3",
