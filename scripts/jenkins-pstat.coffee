@@ -47,9 +47,6 @@ GITHUB_REPO_STATUS = {
   'SUCCESS': 'success',
 }
 
-sendMessageToHipchatRooms = (robot, message) ->
-    robot.messageRoom process.env.HUBOT_HIPCHAT_ROOMS, message
-
 jenkinsBuild = (msg) ->
     url = HUBOT_JENKINS_URL
     job = msg.match[1]
@@ -72,7 +69,7 @@ jenkinsBuild = (msg) ->
           msg.send "Jenkins says: #{body}"
 
 
-registerRootJobStarted = (robot, jobUrl, issue, jobName, number) ->
+registerRootJobStarted = (robot, jobUrl, issue, jobName, number, roomToPostMessagesTo) ->
   baseUrl = HUBOT_JENKINS_URL
   # We use the job base URL, instead of the URL for the specific run,
   # because we need access to the `downstreamProjects` to know
@@ -88,14 +85,14 @@ registerRootJobStarted = (robot, jobUrl, issue, jobName, number) ->
     if err
       errorMessage = "Getting job info from #{url} failed with status: #{err}"
       console.log errorMessage
-      sendMessageToHipchatRooms robot, errorMessage
+      robot.messageRoom roomToPostMessagesTo, errorMessage
     else if res.statusCode == 200
       json = JSON.parse(body)
       numberOfDownstreamJobs = json.downstreamProjects.length
       storeRootBuildData(robot, number, numberOfDownstreamJobs, issue)
     else
       message = "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
-      sendMessageToHipchatRooms robot, message
+      robot.messageRoom roomToPostMessagesTo, message
 
 
 updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA) ->
@@ -145,6 +142,8 @@ markGithubBranchAsFinished = (rootBuildNumber, buildData, buildStatuses) ->
 jenkinsBuildIssue = (robot, msg) ->
     baseUrl = HUBOT_JENKINS_URL
     issue = msg.match[1]
+    # Save the user's private room id so we can reply to it later on
+    user = msg.message.user.jid
     jobName = JENKINS_ROOT_JOB_NAME
 
     url = "#{baseUrl}/job/#{jobName}/buildWithParameters?ISSUE=#{issue}"
@@ -157,11 +156,13 @@ jenkinsBuildIssue = (robot, msg) ->
     req.header('Content-Length', 0)
     req.post() (err, res, body) ->
         if err
-          msg.send "Jenkins reported an error: #{err}"
+          message = "Jenkins reported an error: #{err}"
         else if res.statusCode == 201
-          msg.send "Issue #{issue} has been queued"
+          message = "Issue #{issue} has been queued"
+          robot.brain.set issue, user
         else
-          msg.send "Jenkins responded with status code #{res.statusCode}"
+          message = "Jenkins responded with status code #{res.statusCode}"
+        robot.messageRoom user, message
 
 
 storeRootBuildData = (robot, rootBuildNumber, numberOfDownstreamJobs, issueNumber) ->
@@ -174,7 +175,7 @@ storeRootBuildData = (robot, rootBuildNumber, numberOfDownstreamJobs, issueNumbe
   robot.brain.set rootBuildNumber, buildData
 
 
-getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl, issue) ->
+getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl, issue, roomToPostMessagesTo) ->
   # We need to get the SHA for this set of builds one time, after it completes,
   # and associate it with the build number in Hubot's persistent "brain"
   # storage. After that, we tie all of the actions for that build to the same
@@ -218,7 +219,7 @@ getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl, issue) -
       console.log "Updated commit_sha for #{jobName} #{rootBuildNumber} to #{commitSHA}"
 
       message = "#{jobName} completed successfully for issue #{issue} (#{commitSHA[...8]})."
-      sendMessageToHipchatRooms robot, message
+      robot.messageRoom roomToPostMessagesTo, message
 
       targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
       description = "#{jobName} #{rootBuildNumber} is running"
@@ -367,12 +368,16 @@ module.exports = (robot) ->
       res.end "ok"
       return
 
+    roomToPostMessagesTo = robot.brain.get issue
+    if not roomToPostMessagesTo
+      roomToPostMessagesTo = process.env.HUBOT_HIPCHAT_ROOMS
+
     if build.phase is JENKINS_BUILD_PHASE.STARTED
       message = "Tests for issue ##{issue} has started: #{fullUrl}"
-      sendMessageToHipchatRooms robot, message
+      robot.messageRoom roomToPostMessagesTo, message
 
     else if build.phase is JENKINS_BUILD_PHASE.FINISHED and build.status is JENKINS_BUILD_STATUS.SUCCESS
-      registerRootJobStarted(robot, fullUrl, issue, rootJobName, rootBuildNumber)
-      getAndStoreRootBuildCommit(robot, rootJobName, rootBuildNumber, fullUrl, issue)
+      registerRootJobStarted(robot, fullUrl, issue, rootJobName, rootBuildNumber, roomToPostMessagesTo)
+      getAndStoreRootBuildCommit(robot, rootJobName, rootBuildNumber, fullUrl, issue, roomToPostMessagesTo)
 
     res.end "ok"
