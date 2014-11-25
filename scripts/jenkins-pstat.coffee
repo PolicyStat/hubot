@@ -38,7 +38,7 @@ JENKINS_BUILD_STATUS = {
   'ABORTED': 'ABORTED',
 }
 JENKINS_BUILD_PHASE = {
-  'FINISHED': 'FINISHED',
+  'COMPLETED': 'COMPLETED',
   'STARTED': 'STARTED',
 }
 GITHUB_REPO_STATUS = {
@@ -339,7 +339,7 @@ module.exports = (robot) ->
     buildPhase = build.phase
     buildStatus = build.status
 
-    if buildPhase is JENKINS_BUILD_PHASE.FINISHED
+    if buildPhase is JENKINS_BUILD_PHASE.COMPLETED
       handleFinishedDownstreamJob(robot, jobName, rootBuildNumber, buildNumber, buildStatus)
 
     res.end "ok"
@@ -376,7 +376,7 @@ module.exports = (robot) ->
       message = "Tests for issue ##{issue} has started: #{fullUrl}"
       robot.messageRoom roomToPostMessagesTo, message
 
-    else if build.phase is JENKINS_BUILD_PHASE.FINISHED and build.status is JENKINS_BUILD_STATUS.SUCCESS
+    else if build.phase is JENKINS_BUILD_PHASE.COMPLETED and build.status is JENKINS_BUILD_STATUS.SUCCESS
       registerRootJobStarted(robot, fullUrl, issue, rootJobName, rootBuildNumber, roomToPostMessagesTo)
       getAndStoreRootBuildCommit(robot, rootJobName, rootBuildNumber, fullUrl, issue, roomToPostMessagesTo)
 
