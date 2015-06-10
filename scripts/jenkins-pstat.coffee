@@ -14,6 +14,9 @@
 # Forked to make building a pstat_ticket branch less verbose.
 
 util = require 'util'
+request = require 'request'
+google = require 'googleapis'
+gce = google.compute('v1')
 
 github = {}
 
@@ -25,6 +28,10 @@ HUBOT_GITHUB_REPO = process.env.HUBOT_GITHUB_REPO
 JENKINS_NOTIFICATION_ENDPOINT = process.env.JENKINS_NOTIFICATION_ENDPOINT or "/hubot/build-status"
 JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT = process.env.JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT or "/hubot/root-build-status"
 JENKINS_ROOT_JOB_NAME = process.env.JENKINS_ROOT_JOB_NAME or "pstat_ticket"
+
+GCE_PROJECT_ID = process.env.GCE_PROJECT_ID
+GCE_CLIENT_ID = process.env.GCE_CLIENT_ID
+GCE_PRIVATE_PEM_B64 = process.env.GCE_PRIVATE_PEM_B64
 
 BUILD_DATA = {
   'COMMIT_SHA': 'commit_SHA',
@@ -90,6 +97,7 @@ registerRootJobStarted = (robot, jobUrl, issue, jobName, number, roomToPostMessa
       json = JSON.parse(body)
       numberOfDownstreamJobs = json.downstreamProjects.length
       storeRootBuildData(robot, number, numberOfDownstreamJobs, issue)
+      startGCEJenkinsSlaves(robot, numberOfDownstreamJobs)
     else
       message = "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
       robot.messageRoom roomToPostMessagesTo, message
@@ -173,6 +181,30 @@ storeRootBuildData = (robot, rootBuildNumber, numberOfDownstreamJobs, issueNumbe
   buildData[BUILD_DATA.ISSUE_NUMBER] = issueNumber
   buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT] = numberOfDownstreamJobs
   robot.brain.set rootBuildNumber, buildData
+
+
+startGCEJenkinsSlaves = (robot, numberOfDownstreamJobs) ->
+  console.log "Starting enough additional GCE slaves to handle #{numberOfDownstreamJobs} jobs"
+  # For now, we're just going to ignore the number of slaves already idle
+  # and start enough brand new ones to run the jobs. Future us should check for
+  # currently-idle slaves and not create more if they aren't needed.
+  authClient = new google.auth.JWT(
+    GCE_CLIENT_ID,
+    '',
+    new Buffer(GCE_PRIVATE_PEM_B64, 'base64'),
+    ['https://www.googleapis.com/auth/compute'],
+    ''
+  )
+  authClient.authorize() (err, tokens) ->
+    if err
+      console.log(err)
+      return
+    insertParams = {} # Figure out what we need to pass to start the right instance
+    compute.instances.insert({auth: authClient}, (err, resp) ->
+      if err
+        console.log(err)
+        return
+      # Check for success.
 
 
 getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl, issue, roomToPostMessagesTo) ->
