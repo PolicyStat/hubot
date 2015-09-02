@@ -34,7 +34,8 @@
     "moment":        "1.6.2",
     "date-utils":    "1.2.13",
     "cheerio":       "0.12.1",
-    "githubot":      "0.4.0"
+    "githubot":      "0.4.0",
+    "gcloud":      "0.20.0"
   },
 
   "engines": {
