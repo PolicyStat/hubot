@@ -2,10 +2,15 @@ var gcloud = require('gcloud');
 
 // Authorizing on a per-API-basis. You don't need to do this if you auth on a
 // global basis (see Authorization section above).
+var GCE_CREDENTIALS_CLIENT_EMAIL = process.env.GCE_CREDENTIALS_CLIENT_EMAIL;
+var GCE_CREDENTIALS_PRIVATE_KEY = process.env.GCE_CREDENTIALS_PRIVATE_KEY;
 
 var gce = gcloud.compute({
   projectId: 'pstat-jenkins-slaves',
-  keyFilename: '/home/wes/policystat/fabric/gce/gce_jenkins_slave_account.json'
+  credentials: {
+      client_email: GCE_CREDENTIALS_CLIENT_EMAIL,
+      private_key: GCE_CREDENTIALS_PRIVATE_KEY
+  }
 });
 
 // Create a new VM using the latest OS image of your choice.
