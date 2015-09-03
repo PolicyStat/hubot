@@ -27,6 +27,17 @@ var vmConfig = {
             "autoDelete": true
         }
     ],
+    networkInterfaces: [
+        {
+            network: "global/networks/default",
+            accessConfigs: [
+                {
+                    type: "ONE_TO_ONE_NAT",
+                    name: "External NAT"
+                }
+            ]
+        }
+    ],
     "scheduling": {
         "onHostMaintenance": "TERMINATE",
         "automaticRestart": false,
