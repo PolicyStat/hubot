@@ -13,6 +13,7 @@ var GCE_DISK_SOURCE_IMAGE = process.env.GCE_DISK_SOURCE_IMAGE;
 var GCE_MACHINE_TYPE = process.env.GCE_MACHINE_TYPE || 'n1-highcpu-2';
 var GCE_MACHINE_COUNT = parseInt(process.env.GCE_MACHINE_COUNT, 10) || 1;
 var GCE_REGION = process.env.GCE_REGION || 'us-central1';
+var GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL = process.env.GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL || '';
 
 var DISK_TYPE_TPL = "zones/%s/diskTypes/pd-ssd";
 var GCE_ZONE_LETTERS = [
@@ -191,6 +192,18 @@ function createWorkersInZone(workerIndexes, zoneLetter, timestamp) {
     // The diskType config must be zone-specific
     vmConfig.disks[0].initializeParams.diskType = sprintf(DISK_TYPE_TPL, zoneName);
 
+    if (GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL.length > 0) {
+        // We have a service account, so let's give the machine read/write compute access
+        vmConfig["serviceAccounts"] = [
+            {
+                "email": GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL,
+                "scopes": [
+                    // We want the VMs to be able to shut themselves down
+                    "https://www.googleapis.com/auth/compute"
+                ]
+            }
+        ]
+    }
     var zone = gce.zone(zoneName);
     for (var i = 0; i < desiredMachineCount; i++) {
         var vmName = sprintf(

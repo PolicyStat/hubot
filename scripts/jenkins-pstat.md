@@ -163,6 +163,24 @@ will be launched.
 
 Default: `us-central1`
 
+#### `GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL`
+
+This is the [compute engine service account name](https://cloud.google.com/compute/docs/authentication#serviceaccountname)
+attached to your project.
+It's the `Compute Engine service account`
+on the `Permissions` tab.
+
+If this is provided,
+your VMs will have permissions required
+to delete themselves.
+This allows them to be self-managing
+via an on-shutdown script
+so that they won't stick around in the `Stopped` state.
+
+Default: None
+
+Example: `701465663526@project.gserviceaccount.com`
+
 ## Jenkins Configuration
 
 The Jenkins [Notification Plugin](https://wiki.jenkins-ci.org/display/JENKINS/Notification+Plugin)
