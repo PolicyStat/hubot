@@ -229,11 +229,22 @@ function creationCallback(err, vm, operation, apiResponse) {
     }
 
     console.log("VM creation call succeeded for: %s", vm.name);
-    operation.onComplete(function(err, metadata) {
-        if (err) {
-            console.log(err);
-            return;
+    operation.onComplete(
+        {'maxAttempts': 4, 'interval': 3000},
+        function(err, metadata) {
+            if (err) {
+                if (err.code === 'OPERATION_INCOMPLETE') {
+                    console.log(
+                        "Not waiting for VM %s to complete operation %s",
+                        vm.name,
+                        metadata.name,
+                    );
+                    return;
+                }
+                console.log(err);
+                return;
+            }
+            console.log("VM created: %s", metadata.name);
         }
-        console.log("VM created: %s", metadata.name);
-    });
+    );
 }
