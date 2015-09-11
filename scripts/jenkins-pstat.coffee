@@ -143,6 +143,7 @@ _distributeVMsAcrossNonBusyZones = (vms) ->
     # it's possible for zones to get no indexes.
     workersByZoneLetter = {}
     i = 0
+    j = 0
     while j < zoneLetters.length
       zoneLetter = zoneLetters[j]
       workersByZoneLetter[zoneLetter] = workerIndexes.slice(i, i + maxWorkersPerZone)
