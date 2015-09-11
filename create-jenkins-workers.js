@@ -29,40 +29,45 @@ var gce = gcloud.compute({
       private_key: GCE_CREDENTIALS_PRIVATE_KEY
   }
 });
-var allVms = [];
-var zoneResultsCount = 0;
+launchJenkinsWorkers();
 
-for (var i = 0; i < GCE_ZONE_LETTERS.length; i++) {
-    var zoneLetter = GCE_ZONE_LETTERS[i];
-    var zoneName = sprintf('%s-%s', GCE_REGION, zoneLetter);
-    var zone = gce.zone(zoneName);
+function launchJenkinsWorkers() {
+    var allVms = [];
+    var zoneResultsCount = 0;
 
-    // Determine which zones are busy, based on which currently have VMs,
-    // so that we can spread our workers across zones.
-    // This minimizes the likelihood of all of our workers being prempted at the same time.
-    zone.getVMs(aggregateVMsAcrossZones);
-}
+    function _aggregateVMsAcrossZones(err, vms) {
+        if (err) {
+            console.log("Error retrieving current VM list");
+            console.log(err);
+            return;
+        }
 
-function aggregateVMsAcrossZones(err, vms) {
-    if (err) {
-        console.log("Error retrieving current VM list");
-        console.log(err);
-        return;
+        zoneResultsCount += 1;
+        allVms = allVms.concat(vms);
+
+        if (zoneResultsCount == GCE_ZONE_LETTERS.length) {
+            console.log("VM list retrieved for all %s zones", zoneResultsCount);
+            // We have results from all zones
+            _distributeVMsAcrossNonBusyZones(allVms);
+        }else {
+            console.log("VM list pending for %s more zone(s)", GCE_ZONE_LETTERS.length - zoneResultsCount);
+        }
     }
 
-    zoneResultsCount += 1;
-    allVms = allVms.concat(vms);
+    for (var i = 0; i < GCE_ZONE_LETTERS.length; i++) {
+        var zoneLetter = GCE_ZONE_LETTERS[i];
+        var zoneName = sprintf('%s-%s', GCE_REGION, zoneLetter);
+        var zone = gce.zone(zoneName);
 
-    if (zoneResultsCount == GCE_ZONE_LETTERS.length) {
-        console.log("VM list retrieved for all %s zones", zoneResultsCount);
-        // We have results from all zones
-        distributeVMsAcrossNonBusyZones(allVms);
-    }else {
-        console.log("VM list pending for %s more zone(s)", GCE_ZONE_LETTERS.length - zoneResultsCount);
+        // Determine which zones are busy, based on which currently have VMs,
+        // so that we can spread our workers across zones.
+        // This minimizes the likelihood of all of our workers being prempted at the same time.
+        zone.getVMs(_aggregateVMsAcrossZones);
     }
 }
 
-function distributeVMsAcrossNonBusyZones(vms) {
+
+function _distributeVMsAcrossNonBusyZones(vms) {
     console.log("Determining desired worker distribution across zones");
     console.log("%s existing workers located", vms.length);
     var vmCountByZone = {};
@@ -85,14 +90,17 @@ function distributeVMsAcrossNonBusyZones(vms) {
         }
     }
 
-    zoneLettersNotBusy = getZoneLettersNotBusy(vmCountByZone);
+    zoneLettersNotBusy = _getZoneLettersNotBusy(vmCountByZone);
     console.log("Zones not busy: ", zoneLettersNotBusy);
-    workerNumbersByZoneLetter = distributeWorkersAcrossZones(zoneLettersNotBusy, GCE_MACHINE_COUNT);
+    workerNumbersByZoneLetter = _distributeWorkersAcrossZones(
+        zoneLettersNotBusy,
+        GCE_MACHINE_COUNT
+    );
 
     var timestamp = Math.floor(new Date() / 1000);
     for (var zoneLetter in workerNumbersByZoneLetter) {
         if (workerNumbersByZoneLetter.hasOwnProperty(zoneLetter)) {
-            createWorkersInZone(
+            _createWorkersInZone(
                 workerNumbersByZoneLetter[zoneLetter],
                 zoneLetter,
                 timestamp
@@ -100,7 +108,7 @@ function distributeVMsAcrossNonBusyZones(vms) {
         }
     }
 
-    function getZoneLettersNotBusy(vmCountByZone) {
+    function _getZoneLettersNotBusy(vmCountByZone) {
         var vmCountByZoneLetter = {};
         for (var zoneUrl in vmCountByZone) {
             if (vmCountByZone.hasOwnProperty(zoneUrl)) {
@@ -129,7 +137,7 @@ function distributeVMsAcrossNonBusyZones(vms) {
         return zoneLettersNotBusy;
     }
 
-    function distributeWorkersAcrossZones(zoneLetters, workerCount) {
+    function _distributeWorkersAcrossZones(zoneLetters, workerCount) {
         var maxWorkersPerZone = Math.ceil(workerCount / zoneLetters.length);
         console.log("Placing a max of %s workers in each zone", maxWorkersPerZone);
         var workerIndexes = []
@@ -154,7 +162,7 @@ function distributeVMsAcrossNonBusyZones(vms) {
 }
 
 
-function createWorkersInZone(workerIndexes, zoneLetter, timestamp) {
+function _createWorkersInZone(workerIndexes, zoneLetter, timestamp) {
     var zoneName = sprintf('%s-%s', GCE_REGION, zoneLetter);
     var desiredMachineCount = workerIndexes.length;
     var vmConfig = {
@@ -215,12 +223,12 @@ function createWorkersInZone(workerIndexes, zoneLetter, timestamp) {
         zone.createVM(
             vmName,
             vmConfig,
-            creationCallback
+            jenkinsWorkerCreationCallback
         );
     }
 }
 
-function creationCallback(err, vm, operation, apiResponse) {
+function jenkinsWorkerCreationCallback(err, vm, operation, apiResponse) {
     if (err) {
         console.log("Error creating VM");
         console.log(err);
