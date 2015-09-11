@@ -1,6 +1,5 @@
 var gcloud = require('gcloud');
 var sprintf = require('sprintf-js').sprintf;
-var util = require('util');
 
 // These values can be obtained from the JSON key file you download when creating
 // a service account.
@@ -207,10 +206,10 @@ function createWorkersInZone(workerIndexes, zoneLetter, timestamp) {
     var zone = gce.zone(zoneName);
     for (var i = 0; i < desiredMachineCount; i++) {
         var vmName = sprintf(
-            'worker-%s-zone-%s-%02d',
+            'worker-%s-%02d-zone-%s',
             timestamp,
-            zoneLetter,
-            workerIndexes[i]
+            workerIndexes[i],
+            zoneLetter
         )
         console.log("Creating VM: %s", vmName);
         zone.createVM(
