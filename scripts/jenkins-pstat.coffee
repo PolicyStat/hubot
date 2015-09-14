@@ -174,7 +174,7 @@ _distributeVMsAcrossNonBusyZones = (vms) ->
   zoneLettersNotBusy = _getZoneLettersNotBusy(vmCountByZone)
   console.log 'Zones not busy: ', zoneLettersNotBusy
   workerNumbersByZoneLetter = _distributeWorkersAcrossZones(zoneLettersNotBusy, GCE_MACHINE_COUNT)
-  timestamp = moment().format 'MMDD_HHmmss_SS'  # e.g. 0901_134102_09
+  timestamp = moment().format 'MMDD-HHmmss-SS'  # e.g. 0901-134102-09
   for zoneLetter of workerNumbersByZoneLetter
     if workerNumbersByZoneLetter.hasOwnProperty(zoneLetter)
       _createWorkersInZone workerNumbersByZoneLetter[zoneLetter], zoneLetter, timestamp
