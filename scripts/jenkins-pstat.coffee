@@ -13,7 +13,9 @@
 #
 # Forked to make building a pstat_ticket branch less verbose.
 
-util = require 'util'
+gcloud = require('gcloud')
+moment = require('moment')
+sprintf = require('sprintf-js').sprintf
 
 github = {}
 
@@ -25,6 +27,26 @@ HUBOT_GITHUB_REPO = process.env.HUBOT_GITHUB_REPO
 JENKINS_NOTIFICATION_ENDPOINT = process.env.JENKINS_NOTIFICATION_ENDPOINT or "/hubot/build-status"
 JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT = process.env.JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT or "/hubot/root-build-status"
 JENKINS_ROOT_JOB_NAME = process.env.JENKINS_ROOT_JOB_NAME or "pstat_ticket"
+
+# These values can be obtained from the JSON key file you download when creating
+# a service account.
+# Required GCE configs
+GCE_PROJECT_ID = process.env.GCE_PROJECT_ID
+GCE_CREDENTIALS_CLIENT_EMAIL = process.env.GCE_CREDENTIALS_CLIENT_EMAIL
+GCE_CREDENTIALS_PRIVATE_KEY = process.env.GCE_CREDENTIALS_PRIVATE_KEY
+GCE_DISK_SOURCE_IMAGE = process.env.GCE_DISK_SOURCE_IMAGE
+# Optional GCE configs
+GCE_MACHINE_TYPE = process.env.GCE_MACHINE_TYPE or 'n1-highcpu-2'
+GCE_MACHINE_COUNT = parseInt(process.env.GCE_MACHINE_COUNT, 10) or 1
+GCE_REGION = process.env.GCE_REGION or 'us-central1'
+GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL = process.env.GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL or ''
+DISK_TYPE_TPL = 'zones/%s/diskTypes/pd-ssd'
+GCE_ZONE_LETTERS = [
+  'a'
+  'b'
+  'c'
+  'f'
+]
 
 BUILD_DATA = {
   'COMMIT_SHA': 'commit_SHA',
@@ -46,6 +68,166 @@ GITHUB_REPO_STATUS = {
   'FAILURE': 'failure',
   'SUCCESS': 'success',
 }
+
+gce = gcloud.compute(
+  projectId: GCE_PROJECT_ID
+  credentials:
+    client_email: GCE_CREDENTIALS_CLIENT_EMAIL
+    private_key: GCE_CREDENTIALS_PRIVATE_KEY)
+
+launchJenkinsWorkers = ->
+  allVms = []
+  zoneResultsCount = 0
+
+  _aggregateVMsAcrossZones = (err, vms) ->
+    if err
+      console.log 'Error retrieving current VM list'
+      console.log err
+      return
+    zoneResultsCount += 1
+    allVms = allVms.concat(vms)
+    if zoneResultsCount == GCE_ZONE_LETTERS.length
+      console.log 'VM list retrieved for all %s zones', zoneResultsCount
+      # We have results from all zones
+      _distributeVMsAcrossNonBusyZones allVms
+    else
+      console.log 'VM list pending for %s more zone(s)', GCE_ZONE_LETTERS.length - zoneResultsCount
+    return
+
+  i = 0
+  while i < GCE_ZONE_LETTERS.length
+    zoneLetter = GCE_ZONE_LETTERS[i]
+    zoneName = sprintf('%s-%s', GCE_REGION, zoneLetter)
+    zone = gce.zone(zoneName)
+    # Determine which zones are busy, based on which currently have VMs,
+    # so that we can spread our workers across zones.
+    # This minimizes the likelihood of all of our workers being prempted at the same time.
+    zone.getVMs _aggregateVMsAcrossZones
+    i++
+  return
+
+_distributeVMsAcrossNonBusyZones = (vms) ->
+
+  _getZoneLettersNotBusy = (vmCountByZone) ->
+    `var zoneLetter`
+    vmCountByZoneLetter = {}
+    for zoneUrl of vmCountByZone
+      if vmCountByZone.hasOwnProperty(zoneUrl)
+        zoneLetter = zoneUrl.charAt(zoneUrl.length - 1)
+        if !(zoneLetter of vmCountByZoneLetter)
+          vmCountByZoneLetter[zoneLetter] = 1
+        else
+          vmCountByZoneLetter[zoneLetter] += 1
+    zoneLettersNotBusy = []
+    for zoneLetter of vmCountByZoneLetter
+      if vmCountByZoneLetter.hasOwnProperty(zoneLetter)
+        zoneLettersNotBusy.push zoneLetter
+    # If everything is busy, let's just spread across known zones
+    if zoneLettersNotBusy.length == 0
+      console.log 'No zones have existing workers. Distributing across: %s', GCE_ZONE_LETTERS
+      zoneLettersNotBusy = GCE_ZONE_LETTERS
+    zoneLettersNotBusy
+
+  _distributeWorkersAcrossZones = (zoneLetters, workerCount) ->
+    `var i`
+    maxWorkersPerZone = Math.ceil(workerCount / zoneLetters.length)
+    console.log 'Placing a max of %s workers in each zone', maxWorkersPerZone
+    workerIndexes = []
+    i = 0
+    while i < workerCount
+      workerIndexes.push i
+      i++
+    # Distribute the indexes evenly across the zones.
+    # The last zones will get 1 less if it doesn't work out evenly.
+    # In the case of very low numbers (e.g. 5 nodes in 4 zones),
+    # it's possible for zones to get no indexes.
+    workersByZoneLetter = {}
+    i = 0
+    j = 0
+    while j < zoneLetters.length
+      zoneLetter = zoneLetters[j]
+      workersByZoneLetter[zoneLetter] = workerIndexes.slice(i, i + maxWorkersPerZone)
+      console.log 'Zone %s will have workers: %s', zoneLetter, workersByZoneLetter[zoneLetter]
+      i += maxWorkersPerZone
+      j++
+    workersByZoneLetter
+
+  console.log 'Determining desired worker distribution across zones'
+  console.log '%s existing workers located', vms.length
+  vmCountByZone = {}
+  i = 0
+  while i < vms.length
+    # Only STAGING and RUNNING statuses indicate that there are available resources in a zone
+    # see: https://cloud.google.com/compute/docs/instances/#checkmachinestatus
+    vm = vms[i]
+    status = vm.metadata.status
+    if status == 'STAGING' or status == 'RUNNING'
+      zone = vm.zone.name
+      if !(zone of vmCountByZone)
+        console.log 'VM located in %s', zone
+        vmCountByZone[zone] = 1
+      else
+        vmCountByZone[zone] += 1
+    else
+      console.log 'Ignoring VM %s with status: %s', vm.name, status
+    i++
+  zoneLettersNotBusy = _getZoneLettersNotBusy(vmCountByZone)
+  console.log 'Zones not busy: ', zoneLettersNotBusy
+  workerNumbersByZoneLetter = _distributeWorkersAcrossZones(zoneLettersNotBusy, GCE_MACHINE_COUNT)
+  timestamp = moment().format 'MMDD_HHmmss_SS'  # e.g. 0901_134102_09
+  for zoneLetter of workerNumbersByZoneLetter
+    if workerNumbersByZoneLetter.hasOwnProperty(zoneLetter)
+      _createWorkersInZone workerNumbersByZoneLetter[zoneLetter], zoneLetter, timestamp
+  return
+
+_createWorkersInZone = (workerIndexes, zoneLetter, timestamp) ->
+  zoneName = sprintf('%s-%s', GCE_REGION, zoneLetter)
+  desiredMachineCount = workerIndexes.length
+  vmConfig =
+    machineType: GCE_MACHINE_TYPE
+    disks: [ {
+      boot: true
+      'initializeParams':
+        'sourceImage': sprintf('global/images/%s', GCE_DISK_SOURCE_IMAGE)
+        'diskType': 'zones/us-central1-a/diskTypes/pd-ssd'
+      'autoDelete': true
+    } ]
+    networkInterfaces: [ {
+      network: 'global/networks/default'
+      accessConfigs: [ {
+        type: 'ONE_TO_ONE_NAT'
+        name: 'External NAT'
+      } ]
+    } ]
+    'scheduling':
+      'onHostMaintenance': 'TERMINATE'
+      'automaticRestart': false
+      'preemptible': true
+  console.log 'Launching %s machines in zone %s', desiredMachineCount, zoneName
+  # The diskType config must be zone-specific
+  vmConfig.disks[0].initializeParams.diskType = sprintf(DISK_TYPE_TPL, zoneName)
+  if GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL.length > 0
+    # We have a service account, so let's give the machine read/write compute access
+    vmConfig['serviceAccounts'] = [ {
+      'email': GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL
+      'scopes': [ 'https://www.googleapis.com/auth/compute' ]
+    } ]
+  zone = gce.zone(zoneName)
+  i = 0
+  while i < desiredMachineCount
+    vmName = sprintf('worker-%s-%02d-zone-%s', timestamp, workerIndexes[i], zoneLetter)
+    console.log 'Creating VM: %s', vmName
+    zone.createVM vmName, vmConfig, jenkinsWorkerCreationCallback
+    i++
+  return
+
+jenkinsWorkerCreationCallback = (err, vm, operation, apiResponse) ->
+  if err
+    console.log 'Error creating VM'
+    console.log err
+    return
+  console.log 'VM creation call succeeded for: %s with %s', vm.name, operation.name
+  return
 
 jenkinsBuild = (msg) ->
     url = HUBOT_JENKINS_URL
@@ -145,6 +327,9 @@ jenkinsBuildIssue = (robot, msg) ->
     # Save the user's private room id so we can reply to it later on
     user = msg.message.user.jid
     jobName = JENKINS_ROOT_JOB_NAME
+
+    # Start the workers early, so they're ready ASAP
+    launchJenkinsWorkers()
 
     url = "#{baseUrl}/job/#{jobName}/buildWithParameters?ISSUE=#{issue}"
 

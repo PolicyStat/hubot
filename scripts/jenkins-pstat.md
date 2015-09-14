@@ -69,6 +69,56 @@ The domain for our Jenkins site,
 
 e.g. **http://jenkins.pstattest.com**
 
+### Google Compute Engine configuration
+
+Jenkins workers are spun up on Google Compute Engine
+in response to request to run tests against an issue.
+
+To obtain credentials,
+create a `Service Account`
+and download the `JSON key` file.
+See the [gcloud-node Authorization docs](https://googlecloudplatform.github.io/gcloud-node/#/authorization).
+
+#### `GCE_PROJECT_ID`
+
+The Google Compute Engine projectID
+under which your Jenkins workers
+will be created.
+
+e.g. `pstat-jenkins-slaves`
+
+#### `GCE_CREDENTIALS_CLIENT_EMAIL`
+
+This is the `client_email` value
+from the JSON key file.
+
+#### `GCE_CREDENTIALS_PRIVATE_KEY`
+
+This is the `private_key` value
+from the JSON key file.
+In the JSON file,
+newlines will be encoded as `\n`.
+To translate these to real newlines for the shell variable,
+perform a find/replace in your editor
+so that they're actually on new lines.
+Then,
+wrap the contents in quotes on the shell.
+
+e.g.
+```
+heroku config:set GCE_CREDENTIALS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
+foobarbaz
+sekritrandomcharacters
+-----END PRIVATE KEY-----
+"
+```
+
+#### `GCE_DISK_SOURCE_IMAGE`
+
+The name of the disk image you'd like to use
+as your boot disk.
+e.g. `jenkins-slave-1436458131`
+
 ## Optional Environment Variables
 
 ### `JENKINS_ROOT_JOB_NAME`
@@ -89,6 +139,47 @@ Default: **/hubot/build-status**
 Hubot listens at this endpoint for build status from the root job.
 
 Default: **/hubot/root-build-status**
+
+### Google Compute Engine configurations
+
+#### `GCE_MACHINE_TYPE`
+
+The name of the [machine type](https://cloud.google.com/compute/docs/machine-types)
+your Jenkins workers will use.
+
+Default: `n1-highcpu-2`
+
+#### `GCE_MACHINE_COUNT`
+
+The number of Jenkins workers
+to spin up.
+
+Default: `1`
+
+#### `GCE_REGION`
+
+The GCE region in which Jenkins workers
+will be launched.
+
+Default: `us-central1`
+
+#### `GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL`
+
+This is the [compute engine service account name](https://cloud.google.com/compute/docs/authentication#serviceaccountname)
+attached to your project.
+It's the `Compute Engine service account`
+on the `Permissions` tab.
+
+If this is provided,
+your VMs will have permissions required
+to delete themselves.
+This allows them to be self-managing
+via an on-shutdown script
+so that they won't stick around in the `Stopped` state.
+
+Default: None
+
+Example: `701465663526@project.gserviceaccount.com`
 
 ## Jenkins Configuration
 
