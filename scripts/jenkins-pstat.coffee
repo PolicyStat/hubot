@@ -10,6 +10,7 @@
 # ci issue <issue_number>- builds the pstat_ticket job with the
 #   corresponding issue_<issue_number> branch
 # ci list - lists Jenkins jobs
+# ci workers - Launch a set of Jenkins workers
 #
 # Forked to make building a pstat_ticket branch less verbose.
 
@@ -485,6 +486,12 @@ jenkinsList = (msg) ->
           catch error
             msg.send error
 
+
+jenkinsLaunchWorkers = (msg) ->
+    launchJenkinsWorkers()
+    msg.send "Launching #{GCE_MACHINE_COUNT} Jenkins workers"
+
+
 module.exports = (robot) ->
   github = require("githubot")(robot)
 
@@ -502,10 +509,14 @@ module.exports = (robot) ->
   robot.respond /ci list/i, (msg) ->
     jenkinsList(msg)
 
+  robot.respond /ci workers/i, (msg) ->
+    jenkinsLaunchWorkers(msg)
+
   robot.ci = {
     list: jenkinsList,
     build: jenkinsBuild,
     issue: jenkinsBuildIssue,
+    workers: jenkinsLaunchWorkers,
   }
 
   robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req, res) ->
