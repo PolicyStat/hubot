@@ -27,6 +27,7 @@
     "githubot": "0.4.0",
     "hubot": "2.6.1",
     "hubot-hipchat": "git://github.com/PolicyStat/hubot-hipchat.git#e1ec33ff40f00ea31a156c45145d3bf27b21deb6",
+    "hubot-lunch-rotation": "^0.1.4",
     "hubot-scripts": "2.5.14",
     "moment": "^1.6.2",
     "optparse": "1.0.3",
