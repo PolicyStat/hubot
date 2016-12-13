@@ -161,7 +161,17 @@ Default: `1`
 The GCE region in which Jenkins workers
 will be launched.
 
-Default: `us-central1`
+Default: `us-east1`
+
+#### `GCE_ZONE_LETTERS
+
+A space-separated list
+(e.g. `a b c f`)
+of GCE zones
+(within your `GCE_REGION`)
+inside which GCE instances will be launched.
+
+Default: `b c d`
 
 #### `GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL`
 

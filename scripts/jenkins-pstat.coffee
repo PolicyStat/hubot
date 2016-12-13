@@ -39,14 +39,13 @@ GCE_DISK_SOURCE_IMAGE = process.env.GCE_DISK_SOURCE_IMAGE
 # Optional GCE configs
 GCE_MACHINE_TYPE = process.env.GCE_MACHINE_TYPE or 'n1-highcpu-2'
 GCE_MACHINE_COUNT = parseInt(process.env.GCE_MACHINE_COUNT, 10) or 1
-GCE_REGION = process.env.GCE_REGION or 'us-central1'
+GCE_REGION = process.env.GCE_REGION or 'us-east1'
 GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL = process.env.GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL or ''
 DISK_TYPE_TPL = 'zones/%s/diskTypes/pd-ssd'
-GCE_ZONE_LETTERS = [
-  'a'
+GCE_ZONE_LETTERS = process.env.GCE_ZONE_LETTERS.split(' ') or [
   'b'
   'c'
-  'f'
+  'd'
 ]
 
 BUILD_DATA = {
