@@ -42,11 +42,10 @@ GCE_MACHINE_COUNT = parseInt(process.env.GCE_MACHINE_COUNT, 10) or 1
 GCE_REGION = process.env.GCE_REGION or 'us-east1'
 GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL = process.env.GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL or ''
 DISK_TYPE_TPL = 'zones/%s/diskTypes/pd-ssd'
-GCE_ZONE_LETTERS = process.env.GCE_ZONE_LETTERS.split(' ') or [
-  'b'
-  'c'
-  'd'
-]
+if process.env.GCE_ZONE_LETTERS
+  GCE_ZONE_LETTERS = process.env.GCE_ZONE_LETTERS.split(' ')
+else
+  GCE_ZONE_LETTERS = ['b', 'c', 'd']
 
 BUILD_DATA = {
   'COMMIT_SHA': 'commit_SHA',
