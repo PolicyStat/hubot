@@ -10,7 +10,8 @@
 # ci issue <issue_number>- builds the pstat_ticket job with the
 #   corresponding issue_<issue_number> branch
 # ci list - lists Jenkins jobs
-# ci workers - Launch a set of Jenkins workers
+# ci workers <N> - Launch N number of jenkins workers. N is optional. If not
+#   provided, it defaults to GCE_MACHINE_COUNT
 #
 # Forked to make building a pstat_ticket branch less verbose.
 
@@ -74,7 +75,7 @@ gce = gcloud.compute(
     client_email: GCE_CREDENTIALS_CLIENT_EMAIL
     private_key: GCE_CREDENTIALS_PRIVATE_KEY)
 
-launchJenkinsWorkers = ->
+launchJenkinsWorkers = (workerCount) ->
   allVms = []
   zoneResultsCount = 0
 
@@ -88,7 +89,7 @@ launchJenkinsWorkers = ->
     if zoneResultsCount == GCE_ZONE_LETTERS.length
       console.log 'VM list retrieved for all %s zones', zoneResultsCount
       # We have results from all zones
-      _distributeVMsAcrossNonBusyZones allVms
+      _distributeVMsAcrossNonBusyZones allVms workerCount
     else
       console.log 'VM list pending for %s more zone(s)', GCE_ZONE_LETTERS.length - zoneResultsCount
     return
@@ -105,7 +106,7 @@ launchJenkinsWorkers = ->
     i++
   return
 
-_distributeVMsAcrossNonBusyZones = (vms) ->
+_distributeVMsAcrossNonBusyZones = (vms, workerCount) ->
 
   _getZoneLettersNotBusy = (vmCountByZone) ->
     `var zoneLetter`
@@ -127,7 +128,7 @@ _distributeVMsAcrossNonBusyZones = (vms) ->
       zoneLettersNotBusy = GCE_ZONE_LETTERS
     zoneLettersNotBusy
 
-  _distributeWorkersAcrossZones = (zoneLetters, workerCount) ->
+  _distributeWorkersAcrossZones = (zoneLetters) ->
     `var i`
     maxWorkersPerZone = Math.ceil(workerCount / zoneLetters.length)
     console.log 'Placing a max of %s workers in each zone', maxWorkersPerZone
@@ -172,7 +173,7 @@ _distributeVMsAcrossNonBusyZones = (vms) ->
     i++
   zoneLettersNotBusy = _getZoneLettersNotBusy(vmCountByZone)
   console.log 'Zones not busy: ', zoneLettersNotBusy
-  workerNumbersByZoneLetter = _distributeWorkersAcrossZones(zoneLettersNotBusy, GCE_MACHINE_COUNT)
+  workerNumbersByZoneLetter = _distributeWorkersAcrossZones(zoneLettersNotBusy)
   timestamp = moment().format 'MMDD-HHmmss-SS'  # e.g. 0901-134102-09
   for zoneLetter of workerNumbersByZoneLetter
     if workerNumbersByZoneLetter.hasOwnProperty(zoneLetter)
@@ -328,7 +329,7 @@ jenkinsBuildIssue = (robot, msg) ->
     jobName = JENKINS_ROOT_JOB_NAME
 
     # Start the workers early, so they're ready ASAP
-    launchJenkinsWorkers()
+    launchJenkinsWorkers(GCE_MACHINE_COUNT)
 
     url = "#{baseUrl}/job/#{jobName}/buildWithParameters?ISSUE=#{issue}"
 
@@ -486,8 +487,11 @@ jenkinsList = (msg) ->
 
 
 jenkinsLaunchWorkers = (msg) ->
-    launchJenkinsWorkers()
-    msg.send "Launching #{GCE_MACHINE_COUNT} Jenkins workers"
+    workerCount = msg.match[1]
+    if not workerCount
+      workerCount = GCE_MACHINE_COUNT
+    launchJenkinsWorkers(workerCount)
+    msg.send "Launching #{workerCount} Jenkins workers"
 
 
 module.exports = (robot) ->
@@ -507,7 +511,7 @@ module.exports = (robot) ->
   robot.respond /ci list/i, (msg) ->
     jenkinsList(msg)
 
-  robot.respond /ci workers/i, (msg) ->
+  robot.respond /ci workers ?(\d+)?/i, (msg) ->
     jenkinsLaunchWorkers(msg)
 
   robot.ci = {
