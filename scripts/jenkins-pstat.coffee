@@ -168,6 +168,9 @@ _distributeVMsAcrossNonBusyZones = (vms, workerCount) ->
         vmCountByZone[zone] = 1
       else
         vmCountByZone[zone] += 1
+    else if status == 'TERMINATED'
+      console.log 'Deleting VM %s with status: %s', vm.name, status
+      vm.delete()
     else
       console.log 'Ignoring VM %s with status: %s', vm.name, status
     i++
