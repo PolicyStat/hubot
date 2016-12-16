@@ -89,7 +89,7 @@ launchJenkinsWorkers = (workerCount) ->
     if zoneResultsCount == GCE_ZONE_LETTERS.length
       console.log 'VM list retrieved for all %s zones', zoneResultsCount
       # We have results from all zones
-      _distributeVMsAcrossNonBusyZones allVms workerCount
+      _distributeVMsAcrossNonBusyZones(allVms, workerCount)
     else
       console.log 'VM list pending for %s more zone(s)', GCE_ZONE_LETTERS.length - zoneResultsCount
     return
