@@ -24,6 +24,6 @@
     "githubot": "^1.0.1"
   },
   "engines": {
-    "node": "0.10.x"
+    "node": "4.2.x"
   }
 }
