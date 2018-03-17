@@ -20,12 +20,10 @@ upon have been set.
 
 You can start Hubot locally by running:
 
-    % bin/hubot
-
-You'll see some start up output and a prompt:
-
-    [Sat Feb 28 2015 12:38:27 GMT+0000 (GMT)] INFO Using default redis on localhost:6379
-    Hubot>
+    % vagrant up
+    % vagrant ssh
+    vagrant% cd hubot
+    vagrant% bin/hubot
 
 Then you can interact with Hubot by typing `Hubot help`.
 
