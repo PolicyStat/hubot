@@ -15,6 +15,7 @@
 #
 # Forked to make building a pstat_ticket branch less verbose.
 
+# GCLOUD_PROJECT is passed in automatically from the env
 gcloud = require('gcloud')
 moment = require('moment')
 sprintf = require('sprintf-js').sprintf
@@ -33,7 +34,6 @@ JENKINS_ROOT_JOB_NAME = process.env.JENKINS_ROOT_JOB_NAME or "pstat_ticket"
 # These values can be obtained from the JSON key file you download when creating
 # a service account.
 # Required GCE configs
-GCE_PROJECT_ID = process.env.GCE_PROJECT_ID
 GCE_CREDENTIALS_CLIENT_EMAIL = process.env.GCE_CREDENTIALS_CLIENT_EMAIL
 GCE_CREDENTIALS_PRIVATE_KEY = process.env.GCE_CREDENTIALS_PRIVATE_KEY
 GCE_DISK_SOURCE_IMAGE = process.env.GCE_DISK_SOURCE_IMAGE
@@ -70,10 +70,10 @@ GITHUB_REPO_STATUS = {
 }
 
 gce = gcloud.compute(
-  projectId: GCE_PROJECT_ID
   credentials:
     client_email: GCE_CREDENTIALS_CLIENT_EMAIL
-    private_key: GCE_CREDENTIALS_PRIVATE_KEY)
+    private_key: GCE_CREDENTIALS_PRIVATE_KEY
+)
 
 launchJenkinsWorkers = (workerCount) ->
   allVms = []
