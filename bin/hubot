@@ -1,7 +1,14 @@
-#!/bin/sh
+#!/bin/bash
 
-npm install
+set -e
+
+if [ -f .env ]; then
+  # If there's a local .env file, load it and automatically export any
+  # variables defined
+  set -a
+  source .env
+  set +a
+fi
+
 export PATH="node_modules/.bin:node_modules/hubot/node_modules/.bin:$PATH"
-
 exec node_modules/.bin/hubot "$@"
-
