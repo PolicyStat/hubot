@@ -34,7 +34,7 @@ showDeployStats = (msg) ->
 
     sheets.spreadsheets.values.get options, (err, resp) ->
       if err
-        console.log err
+        console.log 'Error fetching spreadsheet data:', err
         msg.send err
         return
 
