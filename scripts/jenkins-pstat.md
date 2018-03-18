@@ -79,7 +79,7 @@ create a `Service Account`
 and download the `JSON key` file.
 See the [gcloud-node Authorization docs](https://googlecloudplatform.github.io/gcloud-node/#/authorization).
 
-#### `GCE_PROJECT_ID`
+#### `GCLOUD_PROJECT`
 
 The Google Compute Engine projectID
 under which your Jenkins workers
