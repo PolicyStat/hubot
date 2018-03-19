@@ -20,7 +20,6 @@
     "hubot-pugme": "^0.1.1",
     "hubot-redis-brain": "0.0.4",
     "hubot-rules": "^0.1.2",
-    "hubot-scripts": "^2.17.2",
     "hubot-shipit": "^0.2.1",
     "moment": "^2.21.0",
     "sprintf-js": "^1.1.1"
