@@ -73,6 +73,8 @@ showDeployStats = (msg) ->
 module.exports = (robot) ->
   robot.respond /deploy stats/i, (msg) ->
     showDeployStats msg
+  robot.hear /<strong>Deployed<\/strong> <em>live<\/em> active/i, (msg) ->
+    showDeployStats msg
 
 pad = (val, length, padChar = '0') ->
   val += ''
