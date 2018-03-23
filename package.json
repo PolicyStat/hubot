@@ -5,10 +5,11 @@
   "author": "development@policystat.com",
   "description": "A simple helpful robot for your Company",
   "dependencies": {
+    "aws-sdk": "^2.213.1",
     "gcloud": "^0.37.2",
     "githubot": "^1.0.1",
-    "googleapis": "^21.3.0",
     "google-auth-library": "^0.9.10",
+    "googleapis": "^21.3.0",
     "hubot": "^2.19.0",
     "hubot-diagnostics": "0.0.2",
     "hubot-google-images": "^0.2.7",
