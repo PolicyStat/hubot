@@ -30,6 +30,10 @@ APP_SERVERS =
         'dyno0-00.pstatbeta.com',
         'dyno1-00.pstatbeta.com',
     ]
+    pstattest: [
+        'app0.pstattest.com',
+        'app1.pstattest.com',
+    ]
 TIMEOUT = 5000
 
 http = require 'http'
