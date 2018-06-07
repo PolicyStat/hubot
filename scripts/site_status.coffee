@@ -115,11 +115,11 @@ handleStatusRequest = (robot, msg) ->
     environment = msg.match[1].trim()
     if environment not of APP_SERVERS
         return
-    reportEnvironmentStatus environment
+    reportEnvironmentStatus robot, msg, environment
 
 module.exports = (robot) ->
     robot.respond /status (.*)$/i, (msg) ->
         handleStatusRequest robot, msg
     robot.hear /incident .+ triggered .+ DOWN/i, (msg) ->
-        return if not msg.message.user.name == 'PagerDuty'
-        reportEnvironmentStatus 'live'
+        return if msg.message.user.name != 'PagerDuty'
+        reportEnvironmentStatus robot, msg, 'live'
