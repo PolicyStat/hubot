@@ -106,16 +106,20 @@ getServerStatusJSON = (robot, msg, server) ->
             msg.send "#{status_url}: #{error}"
     )
 
+reportEnvironmentStatus = (robot, msg, env) ->
+    console.log 'environment', env
+    for server in APP_SERVERS[env]
+        getServerStatusJSON robot, msg, server
+
 handleStatusRequest = (robot, msg) ->
     environment = msg.match[1].trim()
     if environment not of APP_SERVERS
         return
-    console.log 'environment', environment
-    for server in APP_SERVERS[environment]
-        getServerStatusJSON robot, msg, server
+    reportEnvironmentStatus environment
 
 module.exports = (robot) ->
     robot.respond /status (.*)$/i, (msg) ->
         handleStatusRequest robot, msg
-    robot.hear /PagerDuty/i, (msg) ->
-        console.log msg
+    robot.hear /incident .+ triggered .+ DOWN/i, (msg) ->
+        return if not msg.message.user.name == 'PagerDuty'
+        reportEnvironmentStatus 'live'
