@@ -117,3 +117,5 @@ handleStatusRequest = (robot, msg) ->
 module.exports = (robot) ->
     robot.respond /status (.*)$/i, (msg) ->
         handleStatusRequest robot, msg
+    robot.hear /PagerDuty/i, (msg) ->
+        console.log msg
