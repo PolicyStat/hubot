@@ -1,2 +1,2 @@
-web: bin/hubot -a hipchat -n Hubot
-debug: bin/hubot.debug -a hipchat -n Hubot
+web: bin/hubot -a slack -n Hubot
+debug: bin/hubot.debug -a slack -n Hubot
