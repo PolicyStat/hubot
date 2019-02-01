@@ -17,6 +17,7 @@
     "hubot-help": "^0.2.2",
     "hubot-heroku-keepalive": "^1.0.3",
     "hubot-hipchat": "hipchat/hubot-hipchat",
+    "hubot-slack": "slackapi/hubot-slack",
     "hubot-maps": "0.0.3",
     "hubot-pugme": "^0.1.1",
     "hubot-redis-brain": "0.0.4",
