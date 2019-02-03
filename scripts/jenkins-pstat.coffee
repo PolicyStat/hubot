@@ -328,7 +328,8 @@ jenkinsBuildIssue = (robot, msg) ->
     baseUrl = HUBOT_JENKINS_URL
     issue = msg.match[1]
     # Save the user's private room id so we can reply to it later on
-    user = msg.message.user.jid
+    channelId = msg.message.rawMessage.channel.id
+    console.log "channel ID is #{channelId}"
     jobName = JENKINS_ROOT_JOB_NAME
 
     # Start the workers early, so they're ready ASAP
@@ -347,10 +348,10 @@ jenkinsBuildIssue = (robot, msg) ->
           message = "Jenkins reported an error: #{err}"
         else if res.statusCode == 201
           message = "Issue #{issue} has been queued"
-          robot.brain.set issue, user
+          robot.brain.set issue, channelId
         else
           message = "Jenkins responded with status code #{res.statusCode}"
-        robot.messageRoom user, message
+        robot.messageRoom channelId, message
 
 
 storeRootBuildData = (robot, rootBuildNumber, numberOfDownstreamJobs, issueNumber) ->
@@ -516,6 +517,11 @@ module.exports = (robot) ->
 
   robot.respond /ci workers ?(\d+)?/i, (msg) ->
     jenkinsLaunchWorkers(msg)
+
+  robot.respond /message test/i, (msg) ->
+    channelId = msg.message.rawMessage.channel.id
+    console.log "channel ID is #{channelId}"
+    robot.messageRoom channelId, "pong"
 
   robot.ci = {
     list: jenkinsList,
