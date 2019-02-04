@@ -519,7 +519,7 @@ module.exports = (robot) ->
     jenkinsLaunchWorkers(msg)
 
   robot.respond /message test/i, (msg) ->
-    console.log "#{msg}"
+    console.log(JSON.stringify(msg, null, 4))
     # channelId = msg.message.rawMessage.channel.id
     # console.log "channel ID is #{channelId}"
     channelId = "CFPHHA9R6"
@@ -579,7 +579,7 @@ module.exports = (robot) ->
 
     roomToPostMessagesTo = robot.brain.get issue
     if not roomToPostMessagesTo
-      roomToPostMessagesTo = process.env.HUBOT_HIPCHAT_ROOMS
+      roomToPostMessagesTo = process.env.HUBOT_SLACK_CHANNEL
 
     if build.phase is JENKINS_BUILD_PHASE.STARTED
       message = "Tests for issue ##{issue} has started: #{fullUrl}"
