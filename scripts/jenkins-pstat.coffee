@@ -520,6 +520,7 @@ module.exports = (robot) ->
 
   robot.respond /message test/i, (msg) ->
     # channelId = "CFPHHA9R6"
+    util = require('util')
     console.log(util.inspect(msg.message.rawMessage, {showHidden: false, depth: 3}))
     channelId = msg.message.rawMessage.room
     console.log "channel ID is #{channelId}"
