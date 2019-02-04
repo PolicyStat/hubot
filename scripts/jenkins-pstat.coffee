@@ -328,7 +328,7 @@ jenkinsBuildIssue = (robot, msg) ->
     baseUrl = HUBOT_JENKINS_URL
     issue = msg.match[1]
     # Save the user's private room id so we can reply to it later on
-    channelId = msg.message.rawMessage.channel.id
+    channelId = msg.message.rawMessage.channel
     console.log "channel ID is #{channelId}"
     jobName = JENKINS_ROOT_JOB_NAME
 
@@ -519,10 +519,8 @@ module.exports = (robot) ->
     jenkinsLaunchWorkers(msg)
 
   robot.respond /message test/i, (msg) ->
-    # channelId = "CFPHHA9R6"
     channelId = msg.message.rawMessage.channel
-    console.log "channel ID is #{channelId}"
-    robot.messageRoom channelId, "pong"
+    robot.messageRoom channelId, "pong - channel ID is #{channelId}"
 
   robot.ci = {
     list: jenkinsList,
