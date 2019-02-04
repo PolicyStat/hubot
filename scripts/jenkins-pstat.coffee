@@ -519,9 +519,8 @@ module.exports = (robot) ->
     jenkinsLaunchWorkers(msg)
 
   robot.respond /message test/i, (msg) ->
-    channelId = "CFPHHA9R6"
-    console.log(JSON.stringify(msg.message.rawMessage, null, 4))
-    # channelId = msg.message.rawMessage.room
+    # channelId = "CFPHHA9R6"
+    channelId = msg.message.rawMessage.channel
     console.log "channel ID is #{channelId}"
     robot.messageRoom channelId, "pong"
 
