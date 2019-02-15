@@ -1,19 +1,13 @@
-# Interact with your Jenkins CI server
+# Description:
+#   Interact with your Jenkins CI server
 #
-# You need to set the following variables:
-#   HUBOT_JENKINS_URL = "http://ci.example.com:8080"
+# Configuration:
+#   HUBOT_JENKINS_URL
+#   HUBOT_JENKINS_AUTH - Optional; for authenticating the trigger request (user:password)
 #
-# The following variables are optional
-#   HUBOT_JENKINS_AUTH: for authenticating the trigger request (user:password)
-#
-# ci build <job> - builds the specified Jenkins job
-# ci issue <issue_number>- builds the pstat_ticket job with the
-#   corresponding issue_<issue_number> branch
-# ci list - lists Jenkins jobs
-# ci workers <N> - Launch N number of jenkins workers. N is optional. If not
-#   provided, it defaults to GCE_MACHINE_COUNT
-#
-# Forked to make building a pstat_ticket branch less verbose.
+# Commands:
+#   hubot ci issue <issue_number> - builds the pstat_ticket job with the corresponding issue_<issue_number> branch
+#   hubot ci workers <N> - Launch N number of jenkins workers. N is optional and defaults to 1. Use "max" to use the default maximum number of workers.
 
 # GCLOUD_PROJECT is passed in automatically from the env
 gcloud = require('gcloud')
@@ -493,6 +487,8 @@ jenkinsList = (msg) ->
 jenkinsLaunchWorkers = (msg) ->
     workerCount = msg.match[1]
     if not workerCount
+      workerCount = 1
+    if workerCount == "max"
       workerCount = GCE_MACHINE_COUNT
     launchJenkinsWorkers(workerCount)
     msg.send "Launching #{workerCount} Jenkins workers"
@@ -508,12 +504,6 @@ module.exports = (robot) ->
 
   robot.respond /ci issue ([\d_]+)/i, (msg) ->
     jenkinsBuildIssue(robot, msg)
-
-  robot.respond /ci build ([\w\.\-_]+)/i, (msg) ->
-    jenkinsBuild(msg)
-
-  robot.respond /ci list/i, (msg) ->
-    jenkinsList(msg)
 
   robot.respond /ci workers ?(\d+)?/i, (msg) ->
     jenkinsLaunchWorkers(msg)

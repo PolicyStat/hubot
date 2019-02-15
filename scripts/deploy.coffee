@@ -1,3 +1,15 @@
+# Description:
+#   Queue a deploy to either pstattest or beta
+#
+# Dependencies:
+#   "moment": "^2.21.0"
+#
+# Configuration:
+#   DEPLOY_QUEUE_URL
+#
+# Commands:
+#   hubot deploy <pstattest|beta> <git_branch> - Deploy <git_branch> to either pstattest or beta
+
 moment = require('moment')
 AWS = require('aws-sdk')
 AWS.config.update({region: process.env.AWS_DEFAULT_REGION})
