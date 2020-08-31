@@ -23,7 +23,8 @@
     "hubot-rules": "^0.1.2",
     "hubot-shipit": "^0.2.1",
     "moment": "^2.21.0",
-    "sprintf-js": "^1.1.1"
+    "sprintf-js": "^1.1.1",
+    "hash-stream-validation": "0.2.1"
   },
   "engines": {
     "node": "4.5.x"
