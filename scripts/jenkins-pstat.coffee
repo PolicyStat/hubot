@@ -128,7 +128,6 @@ _getInstanceCountByZone = (instances) ->
       instance.delete()
     else
       console.log 'Ignoring', instance.name, 'with status', status
-    i++
   instanceCountByZone
 
 _distributeWorkersAcrossZones = (workerCount, instanceCountByZone) ->
