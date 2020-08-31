@@ -182,7 +182,7 @@ _createWorkersInZone = (workerIndexes, zoneName, timestamp) ->
     } ]
   i = 0
   while i < desiredMachineCount
-    vmName = sprintf('worker-%s-%02d-zone-%s', timestamp, workerIndexes[i], zoneLetter)
+    vmName = sprintf('worker-%s-%02d-%s', timestamp, workerIndexes[i], zoneName)
     console.log 'Creating VM: %s', vmName
     zone.createVM vmName, vmConfig, jenkinsWorkerCreationCallback
     i++
