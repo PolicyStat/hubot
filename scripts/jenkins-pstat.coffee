@@ -143,7 +143,7 @@ _distributeWorkersAcrossZones = (workerCount, instanceCountByZone) ->
   i = 0
   workerNumbersByZone = {}
   for zoneName of instanceCountByZone
-    workerNumbersByZone[zoneName] = workerIndexes[i .. i + maxWorkersPerZone]
+    workerNumbersByZone[zoneName] = workerIndexes[i .. (i+maxWorkersPerZone)-1]
     console.log 'Zone', zoneName, 'will have workers:', workerNumbersByZone[zoneName]
     i += maxWorkersPerZone
   workerNumbersByZone
