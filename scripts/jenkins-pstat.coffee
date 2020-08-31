@@ -82,7 +82,7 @@ launchJenkinsWorkers = (workerCount) ->
       console.log 'VM list pending for %s more zone(s)', remaining
     else
       console.log 'Finished building list of instances. Preparing to create workers'
-      _createWorkers
+      _createWorkers()
     return
 
   _createWorkers = () ->
@@ -101,6 +101,7 @@ launchJenkinsWorkers = (workerCount) ->
     timestamp = moment().format 'MMDD-HHmmss-SS'  # e.g. 0901-134102-09
     for zoneName of workerNumbersByZone
       _createWorkersInZone workerNumbersByZone[zoneName], zoneName, timestamp
+    return
 
   for zoneName in GCE_ZONE_NAMES
     zone = gce.zone(zoneName)
