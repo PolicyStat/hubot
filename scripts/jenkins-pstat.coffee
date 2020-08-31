@@ -31,16 +31,13 @@ JENKINS_ROOT_JOB_NAME = process.env.JENKINS_ROOT_JOB_NAME or "pstat_ticket"
 GCE_CREDENTIALS_CLIENT_EMAIL = process.env.GCE_CREDENTIALS_CLIENT_EMAIL
 GCE_CREDENTIALS_PRIVATE_KEY = process.env.GCE_CREDENTIALS_PRIVATE_KEY
 GCE_DISK_SOURCE_IMAGE = process.env.GCE_DISK_SOURCE_IMAGE
+GCE_ZONE_NAMES = process.env.GCE_ZONE_NAMES.split(' ')
 # Optional GCE configs
 GCE_MACHINE_TYPE = process.env.GCE_MACHINE_TYPE or 'n1-highcpu-2'
 GCE_MACHINE_COUNT = parseInt(process.env.GCE_MACHINE_COUNT, 10) or 1
-GCE_REGION = process.env.GCE_REGION or 'us-east1'
+
 GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL = process.env.GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL or ''
 DISK_TYPE_TPL = 'zones/%s/diskTypes/pd-ssd'
-if process.env.GCE_ZONE_LETTERS
-  GCE_ZONE_LETTERS = process.env.GCE_ZONE_LETTERS.split(' ')
-else
-  GCE_ZONE_LETTERS = ['b', 'c', 'd']
 
 BUILD_DATA = {
   'COMMIT_SHA': 'commit_SHA',
@@ -70,7 +67,7 @@ gce = gcloud.compute(
 )
 
 launchJenkinsWorkers = (workerCount) ->
-  allVms = []
+  instances = []
   zoneResultsCount = 0
 
   _aggregateVMsAcrossZones = (err, vms) ->
@@ -79,113 +76,87 @@ launchJenkinsWorkers = (workerCount) ->
       console.log err
       return
     zoneResultsCount += 1
-    allVms = allVms.concat(vms)
-    if zoneResultsCount == GCE_ZONE_LETTERS.length
-      console.log 'VM list retrieved for all %s zones', zoneResultsCount
-      # We have results from all zones
-      _distributeVMsAcrossNonBusyZones(allVms, workerCount)
+    instances = instances.concat(vms)
+    remaining = GCE_ZONE_NAMES.length - zoneResultsCount
+    if remaining > 0
+      console.log 'VM list pending for %s more zone(s)', remaining
     else
-      console.log 'VM list pending for %s more zone(s)', GCE_ZONE_LETTERS.length - zoneResultsCount
+      console.log 'Finished building list of instances. Preparing to create workers'
+      _createWorkers
     return
 
-  i = 0
-  while i < GCE_ZONE_LETTERS.length
-    zoneLetter = GCE_ZONE_LETTERS[i]
-    zoneName = sprintf('%s-%s', GCE_REGION, zoneLetter)
+  _createWorkers = () ->
+    instanceCountByZone = _getInstanceCountByZone(instances)
+    console.log 'instanceCountByZone', instanceCountByZone
+
+    numRunningInstances = 0
+    for zoneName of instanceCountByZone
+      numRunningInstances += instanceCountByZone[zoneName]
+
+    if numRunningInstances >= workerCount
+      console.log 'The requested number of workers %s are already running', workerCount
+      return
+
+    workerNumbersByZone = _distributeWorkersAcrossZones(workerCount, instanceCountByZone)
+    timestamp = moment().format 'MMDD-HHmmss-SS'  # e.g. 0901-134102-09
+    for zoneName of workerNumbersByZone
+      _createWorkersInZone workerNumbersByZone[zoneName], zoneName, timestamp
+
+  for zoneName in GCE_ZONE_NAMES
     zone = gce.zone(zoneName)
     # Determine which zones are busy, based on which currently have VMs,
     # so that we can spread our workers across zones.
     # This minimizes the likelihood of all of our workers being prempted at the same time.
     zone.getVMs _aggregateVMsAcrossZones
-    i++
+
   return
 
-_distributeVMsAcrossNonBusyZones = (vms, workerCount) ->
+_getInstanceCountByZone = (instances) ->
+  instanceCountByZone = {}
+  for zoneName in GCE_ZONE_NAMES
+    instanceCountByZone[zoneName] = 0
 
-  _getZoneLettersNotBusy = (vmCountByZone) ->
-    `var zoneLetter`
-    vmCountByZoneLetter = {}
-    for zoneUrl of vmCountByZone
-      if vmCountByZone.hasOwnProperty(zoneUrl)
-        zoneLetter = zoneUrl.charAt(zoneUrl.length - 1)
-        if !(zoneLetter of vmCountByZoneLetter)
-          vmCountByZoneLetter[zoneLetter] = 1
-        else
-          vmCountByZoneLetter[zoneLetter] += 1
-    zoneLettersNotBusy = []
-    for zoneLetter of vmCountByZoneLetter
-      if vmCountByZoneLetter.hasOwnProperty(zoneLetter)
-        zoneLettersNotBusy.push zoneLetter
-    # If everything is busy, let's just spread across known zones
-    if zoneLettersNotBusy.length == 0
-      console.log 'No zones have existing workers. Distributing across: %s', GCE_ZONE_LETTERS
-      zoneLettersNotBusy = GCE_ZONE_LETTERS
-    zoneLettersNotBusy
-
-  _distributeWorkersAcrossZones = (zoneLetters) ->
-    `var i`
-    maxWorkersPerZone = Math.ceil(workerCount / zoneLetters.length)
-    console.log 'Placing a max of %s workers in each zone', maxWorkersPerZone
-    workerIndexes = []
-    i = 0
-    while i < workerCount
-      workerIndexes.push i
-      i++
-    # Distribute the indexes evenly across the zones.
-    # The last zones will get 1 less if it doesn't work out evenly.
-    # In the case of very low numbers (e.g. 5 nodes in 4 zones),
-    # it's possible for zones to get no indexes.
-    workersByZoneLetter = {}
-    i = 0
-    j = 0
-    while j < zoneLetters.length
-      zoneLetter = zoneLetters[j]
-      workersByZoneLetter[zoneLetter] = workerIndexes.slice(i, i + maxWorkersPerZone)
-      console.log 'Zone %s will have workers: %s', zoneLetter, workersByZoneLetter[zoneLetter]
-      i += maxWorkersPerZone
-      j++
-    workersByZoneLetter
-
-  console.log 'Determining desired worker distribution across zones'
-  console.log '%s existing workers located', vms.length
-  vmCountByZone = {}
-  i = 0
-  while i < vms.length
+  for instance in instances
     # Only STAGING and RUNNING statuses indicate that there are available resources in a zone
     # see: https://cloud.google.com/compute/docs/instances/#checkmachinestatus
-    vm = vms[i]
-    status = vm.metadata.status
-    if status == 'STAGING' or status == 'RUNNING'
-      zone = vm.zone.name
-      if !(zone of vmCountByZone)
-        console.log 'VM located in %s', zone
-        vmCountByZone[zone] = 1
-      else
-        vmCountByZone[zone] += 1
+    status = instance.metadata.status
+    if status in ['STAGING', 'RUNNING']
+        instanceCountByZone[instance.zone.name] += 1
     else if status == 'TERMINATED'
-      console.log 'Deleting VM %s with status: %s', vm.name, status
-      vm.delete()
+      console.log 'Deleting', instance.name, 'with status', status
+      instance.delete()
     else
-      console.log 'Ignoring VM %s with status: %s', vm.name, status
+      console.log 'Ignoring', instance.name, 'with status', status
     i++
-  zoneLettersNotBusy = _getZoneLettersNotBusy(vmCountByZone)
-  console.log 'Zones not busy: ', zoneLettersNotBusy
-  workerNumbersByZoneLetter = _distributeWorkersAcrossZones(zoneLettersNotBusy)
-  timestamp = moment().format 'MMDD-HHmmss-SS'  # e.g. 0901-134102-09
-  for zoneLetter of workerNumbersByZoneLetter
-    if workerNumbersByZoneLetter.hasOwnProperty(zoneLetter)
-      _createWorkersInZone workerNumbersByZoneLetter[zoneLetter], zoneLetter, timestamp
-  return
+  instanceCountByZone
 
-_createWorkersInZone = (workerIndexes, zoneLetter, timestamp) ->
-  zoneName = sprintf('%s-%s', GCE_REGION, zoneLetter)
+_distributeWorkersAcrossZones = (workerCount, instanceCountByZone) ->
+  maxWorkersPerZone = Math.ceil(workerCount / GCE_ZONE_NAMES.length)
+  console.log 'Placing a max of %s workers in each zone', maxWorkersPerZone
+
+  workerIndexes = [0...workerCount]
+
+  # Distribute the indexes evenly across the zones.
+  # The last zones will get 1 less if it doesn't work out evenly.
+  # In the case of very low numbers (e.g. 5 nodes in 4 zones),
+  # it's possible for zones to get no indexes.
+  i = 0
+  workerNumbersByZone = {}
+  for zoneName of instanceCountByZone
+    workerNumbersByZone[zoneName] = workerIndexes[i .. i + maxWorkersPerZone]
+    console.log 'Zone', zoneName, 'will have workers:', instanceCountByZone[zoneName]
+    i += maxWorkersPerZone
+  workerNumbersByZone
+
+_createWorkersInZone = (workerIndexes, zoneName, timestamp) ->
+  zone = gce.zone(zoneName)
   desiredMachineCount = workerIndexes.length
   vmConfig =
     machineType: GCE_MACHINE_TYPE
     disks: [ {
       boot: true
       'initializeParams':
-        'sourceImage': sprintf('global/images/%s', GCE_DISK_SOURCE_IMAGE)
+        'sourceImage': "global/images/#{ GCE_DISK_SOURCE_IMAGE }"
         'diskType': 'zones/us-central1-a/diskTypes/pd-ssd'
       'autoDelete': true
     } ]
@@ -200,16 +171,15 @@ _createWorkersInZone = (workerIndexes, zoneLetter, timestamp) ->
       'onHostMaintenance': 'TERMINATE'
       'automaticRestart': false
       'preemptible': true
-  console.log 'Launching %s machines in zone %s', desiredMachineCount, zoneName
+  console.log 'Launching %s machines in zone %s', desiredMachineCount, zone.name
   # The diskType config must be zone-specific
-  vmConfig.disks[0].initializeParams.diskType = sprintf(DISK_TYPE_TPL, zoneName)
+  vmConfig.disks[0].initializeParams.diskType = sprintf(DISK_TYPE_TPL, zone.name)
   if GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL.length > 0
     # We have a service account, so let's give the machine read/write compute access
     vmConfig['serviceAccounts'] = [ {
       'email': GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL
       'scopes': [ 'https://www.googleapis.com/auth/compute' ]
     } ]
-  zone = gce.zone(zoneName)
   i = 0
   while i < desiredMachineCount
     vmName = sprintf('worker-%s-%02d-zone-%s', timestamp, workerIndexes[i], zoneLetter)
