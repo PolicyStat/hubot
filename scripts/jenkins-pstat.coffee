@@ -65,11 +65,11 @@ gce = gcloud.compute(
     private_key: GCE_CREDENTIALS_PRIVATE_KEY
 )
 
-launchJenkinsWorkers = (workerCount) ->
+launchJenkinsWorkers = (workerCount, forceLaunch) ->
   instances = []
   zoneResultsCount = 0
 
-  console.log "Preparing to launch #{workerCount} workers"
+  console.log "Received request to launch #{workerCount} workers"
 
   _aggregateVMsAcrossZones = (err, vms) ->
     if err
@@ -94,7 +94,7 @@ launchJenkinsWorkers = (workerCount) ->
     for zoneName of instanceCountByZone
       numRunningInstances += instanceCountByZone[zoneName]
 
-    if numRunningInstances >= workerCount
+    if forceLaunch isnt true and numRunningInstances >= workerCount
       console.log 'The requested number of workers %s are already running', workerCount
       return
 
@@ -457,7 +457,8 @@ jenkinsLaunchWorkers = (msg) ->
     workerCount = msg.match[1]
     if not workerCount
       workerCount = 1
-    launchJenkinsWorkers(workerCount)
+    forceLaunch = true
+    launchJenkinsWorkers(workerCount, forceLaunch)
     msg.send "Launching #{workerCount} Jenkins workers"
 
 
