@@ -149,29 +149,14 @@ your Jenkins workers will use.
 
 Default: `n1-highcpu-2`
 
-#### `GCE_MACHINE_COUNT`
-
-The number of Jenkins workers
-to spin up.
-
-Default: `1`
-
-#### `GCE_REGION`
-
-The GCE region in which Jenkins workers
-will be launched.
-
-Default: `us-east1`
-
-#### `GCE_ZONE_LETTERS
+#### `GCE_ZONE_NAMES
 
 A space-separated list
-(e.g. `a b c f`)
-of GCE zones
-(within your `GCE_REGION`)
+(e.g. `us-east1-b us-east4-a us-west1-b`)
+of GCE region-qualified zone names
 inside which GCE instances will be launched.
 
-Default: `b c d`
+Default: Required
 
 #### `GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL`
 
