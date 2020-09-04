@@ -239,6 +239,7 @@ registerRootJobStarted = (robot, jobUrl, issue, jobName, number, roomToPostMessa
       json = JSON.parse(body)
       numberOfDownstreamJobs = json.downstreamProjects.length
       storeRootBuildData(robot, number, numberOfDownstreamJobs, issue)
+      launchJenkinsWorkers(numberOfDownstreamJobs)
     else
       message = "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
       robot.messageRoom roomToPostMessagesTo, message
@@ -295,9 +296,6 @@ jenkinsBuildIssue = (robot, msg) ->
     channelId = msg.message.rawMessage.channel
     console.log "channel ID is #{channelId}"
     jobName = JENKINS_ROOT_JOB_NAME
-
-    # Start the workers early, so they're ready ASAP
-    launchJenkinsWorkers(GCE_MACHINE_COUNT)
 
     url = "#{baseUrl}/job/#{jobName}/buildWithParameters?ISSUE=#{issue}"
 
