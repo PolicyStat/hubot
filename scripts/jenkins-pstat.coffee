@@ -34,7 +34,6 @@ GCE_DISK_SOURCE_IMAGE = process.env.GCE_DISK_SOURCE_IMAGE
 GCE_ZONE_NAMES = process.env.GCE_ZONE_NAMES.split(' ')
 # Optional GCE configs
 GCE_MACHINE_TYPE = process.env.GCE_MACHINE_TYPE or 'n1-highcpu-2'
-GCE_MACHINE_COUNT = parseInt(process.env.GCE_MACHINE_COUNT, 10) or 1
 
 GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL = process.env.GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL or ''
 DISK_TYPE_TPL = 'zones/%s/diskTypes/pd-ssd'
@@ -69,6 +68,8 @@ gce = gcloud.compute(
 launchJenkinsWorkers = (workerCount) ->
   instances = []
   zoneResultsCount = 0
+
+  console.log "Preparing to launch #{workerCount} workers"
 
   _aggregateVMsAcrossZones = (err, vms) ->
     if err
@@ -456,8 +457,6 @@ jenkinsLaunchWorkers = (msg) ->
     workerCount = msg.match[1]
     if not workerCount
       workerCount = 1
-    if workerCount == "max"
-      workerCount = GCE_MACHINE_COUNT
     launchJenkinsWorkers(workerCount)
     msg.send "Launching #{workerCount} Jenkins workers"
 
