@@ -219,7 +219,7 @@ rootJobCompletedSuccessfully = (robot, gitBranch, jobName, number) ->
       buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT] = numberOfDownstreamJobs
       buildData[BUILD_DATA.ROOT_JOB_NAME] = jobName
       robot.brain.set number, buildData
-      # launchJenkinsWorkers(numberOfDownstreamJobs)
+      launchJenkinsWorkers(numberOfDownstreamJobs)
     else
       message = "Getting job info from #{url} failed with status: #{res.statusCode}"
       console.log message
