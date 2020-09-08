@@ -239,7 +239,7 @@ updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA
     console.log "Github branch #{branchName} marked as #{state}."
 
 
-markGithubBranchAsFinished = (gitBranch, gitRevison, rootBuildNumber, buildStatuses, rootJobName) ->
+markGithubBranchAsFinished = (gitBranch, gitRevision, rootBuildNumber, buildStatuses, rootJobName) ->
   console.log "markGithubBranchAsFinished #{rootBuildNumber}"
 
   downstreamJobsCount = Object.keys(buildStatuses).length
