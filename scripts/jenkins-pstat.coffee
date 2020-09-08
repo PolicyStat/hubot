@@ -191,28 +191,6 @@ jenkinsWorkerCreationCallback = (err, vm, operation, apiResponse) ->
   console.log 'VM creation call succeeded for: %s with %s', vm.name, operation.name
   return
 
-jenkinsBuild = (msg) ->
-    url = HUBOT_JENKINS_URL
-    job = msg.match[1]
-
-    path = "#{url}/job/#{job}/build"
-
-    req = msg.http(path)
-
-    if HUBOT_JENKINS_AUTH
-      auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
-      req.headers Authorization: "Basic #{auth}"
-
-    req.header('Content-Length', 0)
-    req.post() (err, res, body) ->
-        if err
-          msg.send "Jenkins says: #{err}"
-        else if res.statusCode == 302
-          msg.send "Build started for #{job} #{res.headers.location}"
-        else
-          msg.send "Jenkins says: #{body}"
-
-
 registerRootJobStarted = (robot, jobUrl, issue, jobName, number, roomToPostMessagesTo) ->
   baseUrl = HUBOT_JENKINS_URL
   # We use the job base URL, instead of the URL for the specific run,
@@ -423,30 +401,6 @@ handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, bui
       )
 
 
-jenkinsList = (msg) ->
-    url = HUBOT_JENKINS_URL
-    job = msg.match[1]
-    req = msg.http("#{url}/api/json")
-
-    if HUBOT_JENKINS_AUTH
-      auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
-      req.headers Authorization: "Basic #{auth}"
-
-    req.get() (err, res, body) ->
-        response = ""
-        if err
-          msg.send "Jenkins says: #{err}"
-        else
-          try
-            content = JSON.parse(body)
-            for job in content.jobs
-              state = if job.color != "blue" then "FAIL" else "PASS"
-              response += "#{state} #{job.name}\n"
-            msg.send response
-          catch error
-            msg.send error
-
-
 jenkinsLaunchWorkers = (msg) ->
     workerCount = msg.match[1]
     if not workerCount
@@ -479,13 +433,6 @@ module.exports = (robot) ->
   robot.respond /message test/i, (msg) ->
     channelId = msg.message.rawMessage.channel
     robot.messageRoom channelId, "pong - channel ID is #{channelId}"
-
-  robot.ci = {
-    list: jenkinsList,
-    build: jenkinsBuild,
-    issue: jenkinsBuildIssue,
-    workers: jenkinsLaunchWorkers,
-  }
 
   robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req, res) ->
     console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT}"
