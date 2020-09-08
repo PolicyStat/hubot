@@ -18,30 +18,11 @@ This plugin:
 
 ## Assumptions about your jobs
 
-### `ISSUE` parameter
+### `GIT_BRANCH` parameter
 
 Your root job and downstream jobs
-all take the parameter `ISSUE`
-and know how to to build a job for that pull request.
-An easy way to do this is to create git branches
-of the form `issue_<ISSUE_NUMBER>`.
-
-### `SOURCE_BUILD_NUMBER` parameter
-
-Your downstream jobs use the parameter
-`SOURCE_BUILD_NUMBER`
-to match themselves to the root job.
-An easy way to use this parameter in your jobs
-to keep them synced with their source
-is to write this number to a file
-in your build process.
-
-    $ echo "$SOURCE_BUILD_NUMBER" > source_build_number.txt
-
-Then,
-add that `source_build_number.txt` file
-in your `Files to archive`
-and `Files to fingerprint`.
+all take the parameter `GIT_BRANCH`
+and know how to build a job for that pull request.
 
 ## Required Environment Variables
 
@@ -85,8 +66,6 @@ The Google Compute Engine projectID
 under which your Jenkins workers
 will be created.
 
-e.g. `pstat-jenkins-slaves`
-
 #### `GCE_CREDENTIALS_CLIENT_EMAIL`
 
 This is the `client_email` value
@@ -117,14 +96,12 @@ sekritrandomcharacters
 
 The name of the disk image you'd like to use
 as your boot disk.
-e.g. `jenkins-slave-1436458131`
 
 ## Optional Environment Variables
 
 ### `JENKINS_ROOT_JOB_NAME`
 
 Name of the root job to build, when asked.
-You'll probably want to change this :)
 
 Default: `pstat_ticket`
 
@@ -174,7 +151,7 @@ so that they won't stick around in the `Stopped` state.
 
 Default: None
 
-Example: `701465663526@project.gserviceaccount.com`
+Example: `xxxxxxxxx@project.gserviceaccount.com`
 
 ## Jenkins Configuration
 
