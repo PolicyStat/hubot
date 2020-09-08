@@ -270,7 +270,7 @@ jenkinsBuildIssue = (robot, msg) ->
     console.log "channel ID is #{channelId}"
     jobName = JENKINS_ROOT_JOB_NAME
 
-    url = "#{baseUrl}/job/#{jobName}/buildWithParameters?ISSUE=#{issue}"
+    url = "#{baseUrl}/job/#{jobName}/buildWithParameters?GIT_BRANCH=issue_#{issue}"
 
     req = msg.http(url)
     if HUBOT_JENKINS_AUTH
