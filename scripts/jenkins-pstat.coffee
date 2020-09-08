@@ -218,7 +218,7 @@ rootJobCompletedSuccessfully = (robot, gitBranch, jobName, number) ->
       buildData[BUILD_DATA.GIT_BRANCH] = gitBranch
       buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT] = numberOfDownstreamJobs
       buildData[BUILD_DATA.ROOT_JOB_NAME] = jobName
-      robot.brain.set rootBuildNumber, buildData
+      robot.brain.set number, buildData
       # launchJenkinsWorkers(numberOfDownstreamJobs)
     else
       message = "Getting job info from #{url} failed with status: #{res.statusCode}"
@@ -282,7 +282,7 @@ jenkinsBuildIssue = (robot, msg) ->
         if err
           message = "Jenkins reported an error: #{err}"
         else if res.statusCode == 201
-          message = "Issue #{issue} (#{branch}) has been queued"
+          message = "#{JENKINS_ROOT_JOB_NAME} #{branch}: Queued"
           robot.brain.set branch, channelId
         else
           message = "Jenkins responded with status code #{res.statusCode}"
@@ -401,12 +401,14 @@ module.exports = (robot) ->
     if not roomToPostMessagesTo
       roomToPostMessagesTo = process.env.HUBOT_SLACK_CHANNEL
 
+    rootBuildNumberUrl = "<a href=\"#{fullUrl}\">#{rootBuildNumber}</a>"
+
     if build.phase is JENKINS_BUILD_PHASE.STARTED
-      message = "#{rootJobName} #{rootBuildNumber} #{gitBranch}: Started (#{fullUrl})"
+      message = "#{rootJobName} #{gitBranch} #{rootBuildNumberUrl}: Started"
       robot.messageRoom roomToPostMessagesTo, message
 
     else if build.phase is JENKINS_BUILD_PHASE.COMPLETED and build.status is JENKINS_BUILD_STATUS.SUCCESS
-      message = "#{rootJobName} #{rootBuildNumber} #{gitBranch}: Completed successfully"
+      message = "#{rootJobName} #{gitBranch} #{rootBuildNumberUrl}: Completed successfully"
       robot.messageRoom roomToPostMessagesTo, message
       rootJobCompletedSuccessfully(robot, gitBranch, rootJobName, rootBuildNumber)
 
