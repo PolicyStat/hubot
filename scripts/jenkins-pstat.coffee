@@ -360,7 +360,7 @@ module.exports = (robot) ->
       res.end "ok"
       return
 
-    gitRevision = build.parameters.GIT_REVISION
+    gitRevision = build.parameters.GIT_COMMIT
     gitBranch = build.parameters.GIT_BRANCH
     rootBuildNumber = build.parameters.ROOT_BUILD_NUMBER
     buildNumber = build.number
