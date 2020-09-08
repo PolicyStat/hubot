@@ -40,9 +40,10 @@ DISK_TYPE_TPL = 'zones/%s/diskTypes/pd-ssd'
 
 BUILD_DATA = {
   'COMMIT_SHA': 'commit_SHA',
-  'ISSUE_NUMBER': 'issue_number',
-  'DOWNSTREAM_JOBS_COUNT': 'downstream_jobs_count'
-  'MARKED_AS_FINISHED': 'marked_as_finished'
+  'GIT_BRANCH': 'git_branch',
+  'DOWNSTREAM_JOBS_COUNT': 'downstream_jobs_count',
+  'MARKED_AS_FINISHED': 'marked_as_finished',
+  'ROOT_JOB_NAME': 'root_job_name',
 }
 JENKINS_BUILD_STATUS = {
   'FAILURE': 'FAILURE',
@@ -191,7 +192,8 @@ jenkinsWorkerCreationCallback = (err, vm, operation, apiResponse) ->
   console.log 'VM creation call succeeded for: %s with %s', vm.name, operation.name
   return
 
-registerRootJobStarted = (robot, jobUrl, issue, jobName, number, roomToPostMessagesTo) ->
+rootJobCompletedSuccessfully = (robot, gitBranch, jobName, number) ->
+  console.log "rootJobCompletedSuccessfully #{gitBranch} #{jobName} #{number}"
   baseUrl = HUBOT_JENKINS_URL
   # We use the job base URL, instead of the URL for the specific run,
   # because we need access to the `downstreamProjects` to know
@@ -207,15 +209,20 @@ registerRootJobStarted = (robot, jobUrl, issue, jobName, number, roomToPostMessa
     if err
       errorMessage = "Getting job info from #{url} failed with status: #{err}"
       console.log errorMessage
-      robot.messageRoom roomToPostMessagesTo, errorMessage
     else if res.statusCode == 200
       json = JSON.parse(body)
       numberOfDownstreamJobs = json.downstreamProjects.length
-      storeRootBuildData(robot, number, numberOfDownstreamJobs, issue)
-      launchJenkinsWorkers(numberOfDownstreamJobs)
+
+      console.log "Storing root build data for #{number}"
+      buildData = robot.brain.get(number) or {}
+      buildData[BUILD_DATA.GIT_BRANCH] = gitBranch
+      buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT] = numberOfDownstreamJobs
+      buildData[BUILD_DATA.ROOT_JOB_NAME] = jobName
+      robot.brain.set rootBuildNumber, buildData
+      # launchJenkinsWorkers(numberOfDownstreamJobs)
     else
-      message = "Getting job info from #{jobUrl} failed with status: #{res.statusCode}"
-      robot.messageRoom roomToPostMessagesTo, message
+      message = "Getting job info from #{url} failed with status: #{res.statusCode}"
+      console.log message
 
 
 updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA) ->
@@ -232,9 +239,8 @@ updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA
     console.log "Github branch #{branchName} marked as #{state}."
 
 
-markGithubBranchAsFinished = (rootBuildNumber, buildData, buildStatuses) ->
+markGithubBranchAsFinished = (gitBranch, gitRevison, rootBuildNumber, buildStatuses, rootJobName) ->
   console.log "markGithubBranchAsFinished #{rootBuildNumber}"
-  issueNumber = buildData[BUILD_DATA.ISSUE_NUMBER]
 
   downstreamJobsCount = Object.keys(buildStatuses).length
 
@@ -246,32 +252,26 @@ markGithubBranchAsFinished = (rootBuildNumber, buildData, buildStatuses) ->
       failedJobNames.push(jobName)
 
   if not allSucceeded
-    statusDescription = "The following downstream projects failed: "
+    statusDescription = "Failed jobs: "
     for failedJobName in failedJobNames
       statusDescription += " #{failedJobName}"
   else
     statusDescription = "Build #{rootBuildNumber} succeeded! #{downstreamJobsCount} downstream projects completed successfully."
 
-  targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
-  updateGithubBranchStatus(
-    "issue_#{issueNumber}",
-    if allSucceeded then GITHUB_REPO_STATUS.SUCCESS else GITHUB_REPO_STATUS.FAILURE,
-    targetURL,
-    statusDescription,
-    buildData[BUILD_DATA.COMMIT_SHA],
-  )
+  targetURL = "#{HUBOT_JENKINS_URL}/job/#{rootJobName}/#{rootBuildNumber}"
+  status = if allSucceeded then GITHUB_REPO_STATUS.SUCCESS else GITHUB_REPO_STATUS.FAILURE
+  updateGithubBranchStatus(gitBranch, status, targetURL, statusDescription, gitRevision)
 
 
 jenkinsBuildIssue = (robot, msg) ->
     baseUrl = HUBOT_JENKINS_URL
     issue = msg.match[1]
+    branch = "issue_#{issue}"
     # Save the user's private room id so we can reply to it later on
     channelId = msg.message.rawMessage.channel
     console.log "channel ID is #{channelId}"
-    jobName = JENKINS_ROOT_JOB_NAME
 
-    url = "#{baseUrl}/job/#{jobName}/buildWithParameters?GIT_BRANCH=issue_#{issue}"
-
+    url = "#{baseUrl}/job/#{JENKINS_ROOT_JOB_NAME}/buildWithParameters?GIT_BRANCH=#{branch}"
     req = msg.http(url)
     if HUBOT_JENKINS_AUTH
       auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
@@ -282,96 +282,16 @@ jenkinsBuildIssue = (robot, msg) ->
         if err
           message = "Jenkins reported an error: #{err}"
         else if res.statusCode == 201
-          message = "Issue #{issue} has been queued"
-          robot.brain.set issue, channelId
+          message = "Issue #{issue} (#{branch}) has been queued"
+          robot.brain.set branch, channelId
         else
           message = "Jenkins responded with status code #{res.statusCode}"
         robot.messageRoom channelId, message
 
 
-storeRootBuildData = (robot, rootBuildNumber, numberOfDownstreamJobs, issueNumber) ->
-  console.log "Storing root build data for #{rootBuildNumber}"
-  # Store the number of downstream jobs and issue number
+downstreamJobCompleted = (robot, jobName, rootBuildNumber, buildNumber, buildStatus, gitRevision, gitBranch) ->
+  console.log "downstreamJobCompleted #{jobName} #{rootBuildNumber} #{buildStatus} #{gitRevision} #{gitBranch}"
   buildData = robot.brain.get(rootBuildNumber) or {}
-
-  buildData[BUILD_DATA.ISSUE_NUMBER] = issueNumber
-  buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT] = numberOfDownstreamJobs
-  robot.brain.set rootBuildNumber, buildData
-
-
-getAndStoreRootBuildCommit = (robot, jobName, rootBuildNumber, fullUrl, issue, roomToPostMessagesTo) ->
-  # We need to get the SHA for this set of builds one time, after it completes,
-  # and associate it with the build number in Hubot's persistent "brain"
-  # storage. After that, we tie all of the actions for that build to the same
-  # SHA. This lets us run multiple simultaneous builds against a branch for
-  # different commits. It also ensures that if we add commits after a build
-  # starts, the results are tied to the actual commit against which the tests
-  # were run.
-  console.log "getAndStoreRootBuildCommit for #{jobName} #{rootBuildNumber}"
-  url = "#{fullUrl}api/json?tree=actions[lastBuiltRevision[SHA1]],result"
-  req = robot.http(url)
-
-  if HUBOT_JENKINS_AUTH
-    auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
-    req.headers Authorization: "Basic #{auth}"
-
-  req.get() (err, res, body) ->
-    if res.statusCode == 200
-      buildData = robot.brain.get(rootBuildNumber) or {}
-      data = JSON.parse(body)
-
-      result = data.result
-      if result != JENKINS_BUILD_STATUS.SUCCESS
-        console.log "Job not successful. Can't get commit hash."
-        return
-
-      actions = data.actions
-      if not actions
-        console.log "No actions found from #{url}"
-        return
-
-      commitSHA = null
-      for action in actions
-        if "lastBuiltRevision" in Object.keys(action)
-          commitSHA = action.lastBuiltRevision?.SHA1
-      if not commitSHA
-        console.log "No lastBuiltRevision.SHA1 found at #{url}"
-        return
-
-      buildData[BUILD_DATA.COMMIT_SHA] = commitSHA
-      robot.brain.set rootBuildNumber, buildData
-      console.log "Updated commit_sha for #{jobName} #{rootBuildNumber} to #{commitSHA}"
-
-      message = "#{jobName} completed successfully for issue #{issue} (#{commitSHA[...8]})."
-      robot.messageRoom roomToPostMessagesTo, message
-
-      targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
-      description = "#{jobName} #{rootBuildNumber} is running"
-      updateGithubBranchStatus(
-        "issue_#{issue}"
-        GITHUB_REPO_STATUS.PENDING,
-        targetURL,
-        description,
-        commitSHA,
-      )
-
-
-handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, buildStatus) ->
-  console.log "handleFinishedDownstreamJob for #{jobName}, #{rootBuildNumber} with status #{buildStatus}"
-  buildData = robot.brain.get(rootBuildNumber) or {}
-  if not BUILD_DATA.COMMIT_SHA in Object.keys(buildData)
-    errorMsg = "Error: Root build #{rootBuildNumber} doesn't have required rootBuildData 
-     to handle #{jobName} #{buildNumber}"
-    console.log errorMsg
-    console.log "Current buildData: #{buildData}"
-    # TODO: We could recover here by:
-    # 1. Crawling to the parent job and then getting/storing the root job data
-    # 2. After that, kicking off something to crawl the downstream jobs and
-    # actually poll for their statuses, just to catch up with anything we might
-    # have missed. That ability would also go 80% of the way towards building
-    # something that we could run on start to handle any missed notifications
-    # while hubot was down.
-    return
 
   statusesKey = "#{rootBuildNumber}_statuses"
   buildStatuses = robot.brain.get(statusesKey) or {}
@@ -379,26 +299,21 @@ handleFinishedDownstreamJob = (robot, jobName, rootBuildNumber, buildNumber, bui
   robot.brain.set statusesKey, buildStatuses
 
   numFinishedDownstreamJobs = Object.keys(buildStatuses).length
-  console.log "Number of finished downstream builds from root
-   build #{rootBuildNumber}: #{numFinishedDownstreamJobs}"
+  console.log "Number of finished downstream builds from root build #{rootBuildNumber}: #{numFinishedDownstreamJobs}"
+
+  rootJobName = buildData[BUILD_DATA.ROOT_JOB_NAME]
 
   if numFinishedDownstreamJobs is buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT]
-    markGithubBranchAsFinished(rootBuildNumber, buildData, buildStatuses)
+    markGithubBranchAsFinished(gitBranch, gitRevision, rootBuildNumber, buildStatuses, rootJobName)
     buildData[BUILD_DATA.MARKED_AS_FINISHED] = true
     robot.brain.set rootBuildNumber, buildData
   else
     if buildStatus is JENKINS_BUILD_STATUS.FAILURE
       # This job failed. Even though all of the downstream jobs aren't finished,
       # we can already mark the build as a failure.
-      targetURL = "#{HUBOT_JENKINS_URL}/job/#{JENKINS_ROOT_JOB_NAME}/#{rootBuildNumber}"
+      targetURL = "#{HUBOT_JENKINS_URL}/job/#{rootJobName}/#{rootBuildNumber}"
       description = "Build #{buildNumber} of #{jobName} failed"
-      updateGithubBranchStatus(
-        "issue_#{buildData[BUILD_DATA.ISSUE_NUMBER]}"
-        GITHUB_REPO_STATUS.FAILURE,
-        targetURL,
-        description,
-        buildData[BUILD_DATA.COMMIT_SHA],
-      )
+      updateGithubBranchStatus(gitBranch, GITHUB_REPO_STATUS.FAILURE, targetURL, description, gitRevision)
 
 
 jenkinsLaunchWorkers = (msg) ->
@@ -445,13 +360,15 @@ module.exports = (robot) ->
       res.end "ok"
       return
 
-    rootBuildNumber = build.parameters.SOURCE_BUILD_NUMBER
+    gitRevision = build.parameters.GIT_REVISION
+    gitBranch = build.parameters.GIT_BRANCH
+    rootBuildNumber = build.parameters.ROOT_BUILD_NUMBER
     buildNumber = build.number
     buildPhase = build.phase
     buildStatus = build.status
 
     if buildPhase is JENKINS_BUILD_PHASE.COMPLETED
-      handleFinishedDownstreamJob(robot, jobName, rootBuildNumber, buildNumber, buildStatus)
+      downstreamJobCompleted(robot, jobName, rootBuildNumber, buildNumber, buildStatus, gitRevision, gitBranch)
 
     res.end "ok"
 
@@ -466,6 +383,12 @@ module.exports = (robot) ->
       res.end "ok"
       return
 
+    gitBranch = build.parameters.GIT_BRANCH
+    if not gitBranch
+      console.log "No gitBranch argument given. Exiting."
+      res.end "ok"
+      return
+
     rootBuildNumber = build.number
     if not rootBuildNumber
       console.log "No rootBuildNumber argument given. Exiting."
@@ -473,22 +396,18 @@ module.exports = (robot) ->
       return
 
     fullUrl = build.full_url
-    issue = build.parameters.ISSUE
-    if not issue
-      console.log "No parameters.ISSUE argument given. Exiting."
-      res.end "ok"
-      return
 
-    roomToPostMessagesTo = robot.brain.get issue
+    roomToPostMessagesTo = robot.brain.get gitBranch
     if not roomToPostMessagesTo
       roomToPostMessagesTo = process.env.HUBOT_SLACK_CHANNEL
 
     if build.phase is JENKINS_BUILD_PHASE.STARTED
-      message = "Tests for issue ##{issue} has started: #{fullUrl}"
+      message = "#{rootJobName} #{rootBuildNumber} #{gitBranch}: Started (#{fullUrl})"
       robot.messageRoom roomToPostMessagesTo, message
 
     else if build.phase is JENKINS_BUILD_PHASE.COMPLETED and build.status is JENKINS_BUILD_STATUS.SUCCESS
-      registerRootJobStarted(robot, fullUrl, issue, rootJobName, rootBuildNumber, roomToPostMessagesTo)
-      getAndStoreRootBuildCommit(robot, rootJobName, rootBuildNumber, fullUrl, issue, roomToPostMessagesTo)
+      message = "#{rootJobName} #{rootBuildNumber} #{gitBranch}: Completed successfully"
+      robot.messageRoom roomToPostMessagesTo, message
+      rootJobCompletedSuccessfully(robot, gitBranch, rootJobName, rootBuildNumber)
 
     res.end "ok"
