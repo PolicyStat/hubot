@@ -10,11 +10,11 @@
 #   hubot ci workers <N> - Launch N number of jenkins workers. N is optional and defaults to 1. Use "max" to use the default maximum number of workers.
 
 # GCLOUD_PROJECT is passed in automatically from the env
-gcloud = require('gcloud')
 moment = require('moment')
 sprintf = require('sprintf-js').sprintf
 
 github = {}
+gce = {}
 
 HUBOT_JENKINS_URL = process.env.HUBOT_JENKINS_URL
 HUBOT_JENKINS_AUTH = process.env.HUBOT_JENKINS_AUTH
@@ -58,12 +58,6 @@ GITHUB_REPO_STATUS = {
   'FAILURE': 'failure',
   'SUCCESS': 'success',
 }
-
-gce = gcloud.compute(
-  credentials:
-    client_email: GCE_CREDENTIALS_CLIENT_EMAIL
-    private_key: GCE_CREDENTIALS_PRIVATE_KEY
-)
 
 launchJenkinsWorkers = (workerCount, forceLaunch) ->
   instances = []
@@ -464,6 +458,12 @@ jenkinsLaunchWorkers = (msg) ->
 
 module.exports = (robot) ->
   github = require("githubot")(robot)
+  gcloud = require('gcloud')
+  gce = gcloud.compute(
+    credentials:
+      client_email: GCE_CREDENTIALS_CLIENT_EMAIL
+      private_key: GCE_CREDENTIALS_PRIVATE_KEY
+  )
 
   github.handleErrors (response) ->
     console.log "Oh noes! A github request returned #{response.statusCode}"
