@@ -401,14 +401,12 @@ module.exports = (robot) ->
     if not roomToPostMessagesTo
       roomToPostMessagesTo = process.env.HUBOT_SLACK_CHANNEL
 
-    rootBuildNumberUrl = "<a href=\"#{fullUrl}\">#{rootBuildNumber}</a>"
-
     if build.phase is JENKINS_BUILD_PHASE.STARTED
-      message = "#{rootJobName} #{gitBranch} #{rootBuildNumberUrl}: Started"
+      message = "#{rootJobName} #{gitBranch} #{rootBuildNumber}: Started (#{fullUrl})"
       robot.messageRoom roomToPostMessagesTo, message
 
     else if build.phase is JENKINS_BUILD_PHASE.COMPLETED and build.status is JENKINS_BUILD_STATUS.SUCCESS
-      message = "#{rootJobName} #{gitBranch} #{rootBuildNumberUrl}: Completed successfully"
+      message = "#{rootJobName} #{gitBranch} #{rootBuildNumber}: Completed successfully"
       robot.messageRoom roomToPostMessagesTo, message
       rootJobCompletedSuccessfully(robot, gitBranch, rootJobName, rootBuildNumber)
 
