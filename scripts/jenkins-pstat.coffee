@@ -75,7 +75,7 @@ launchJenkinsWorkers = (workerCount, forceLaunch) ->
     instances = instances.concat(vms)
     remaining = GCE_ZONE_NAMES.length - zoneResultsCount
     if remaining > 0
-      console.log 'VM list pending for %s more zone(s)', remaining
+      console.log "VM list pending for #{remaining} more zone(s)"
     else
       console.log 'Finished building list of instances. Preparing to create workers'
       _createWorkers()
@@ -90,7 +90,7 @@ launchJenkinsWorkers = (workerCount, forceLaunch) ->
       numRunningInstances += instanceCountByZone[zoneName]
 
     if forceLaunch isnt true and numRunningInstances >= workerCount
-      console.log 'The requested number of workers %s are already running', workerCount
+      console.log "The requested number of workers #{workerCount} are already running"
       return
 
     workerNumbersByZone = _distributeWorkersAcrossZones(workerCount, instanceCountByZone)
@@ -120,15 +120,15 @@ _getInstanceCountByZone = (instances) ->
     if status in ['STAGING', 'RUNNING']
         instanceCountByZone[instance.zone.name] += 1
     else if status == 'TERMINATED'
-      console.log 'Deleting', instance.name, 'with status', status
+      console.log "Deleting #{instance.name} with status #{status}"
       instance.delete()
     else
-      console.log 'Ignoring', instance.name, 'with status', status
+      console.log "Ignoring #{instance.name} with status #{status}"
   instanceCountByZone
 
 _distributeWorkersAcrossZones = (workerCount, instanceCountByZone) ->
   maxWorkersPerZone = Math.ceil(workerCount / GCE_ZONE_NAMES.length)
-  console.log 'Placing a max of %s workers in each zone', maxWorkersPerZone
+  console.log "Placing a max of #{maxWorkersPerZone} workers in each zone"
 
   workerIndexes = [0...workerCount]
 
@@ -147,27 +147,36 @@ _distributeWorkersAcrossZones = (workerCount, instanceCountByZone) ->
 _createWorkersInZone = (workerIndexes, zoneName, timestamp) ->
   zone = gce.zone(zoneName)
   desiredMachineCount = workerIndexes.length
-  vmConfig =
+  vmConfig = {
     machineType: GCE_MACHINE_TYPE
-    disks: [ {
-      boot: true
-      'initializeParams':
-        'sourceImage': "global/images/#{ GCE_DISK_SOURCE_IMAGE }"
-        'diskType': 'zones/us-central1-a/diskTypes/pd-ssd'
-      'autoDelete': true
-    } ]
-    networkInterfaces: [ {
-      network: 'global/networks/default'
-      accessConfigs: [ {
-        type: 'ONE_TO_ONE_NAT'
-        name: 'External NAT'
-      } ]
-    } ]
-    'scheduling':
-      'onHostMaintenance': 'TERMINATE'
-      'automaticRestart': false
-      'preemptible': true
-  console.log 'Launching %s machines in zone %s', desiredMachineCount, zone.name
+    disks: [
+      {
+        boot: true
+        initializeParams: {
+          sourceImage: "global/images/#{ GCE_DISK_SOURCE_IMAGE }"
+          diskType: 'zones/us-central1-a/diskTypes/pd-ssd'
+        }
+        autoDelete: true
+      }
+    ]
+    networkInterfaces: [
+      {
+        network: 'global/networks/default'
+        accessConfigs: [
+          {
+            type: 'ONE_TO_ONE_NAT'
+            name: 'External NAT'
+          }
+        ]
+      }
+    ]
+    scheduling: {
+      onHostMaintenance: 'TERMINATE'
+      automaticRestart: false
+      preemptible: true
+    }
+  }
+  console.log "Launching #{desiredMachineCount} machines in zone #{zone.name}"
   # The diskType config must be zone-specific
   vmConfig.disks[0].initializeParams.diskType = sprintf(DISK_TYPE_TPL, zone.name)
   if GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL.length > 0
@@ -179,7 +188,7 @@ _createWorkersInZone = (workerIndexes, zoneName, timestamp) ->
   i = 0
   while i < desiredMachineCount
     vmName = sprintf('worker-%s-%02d-%s', timestamp, workerIndexes[i], zoneName)
-    console.log 'Creating VM: %s', vmName
+    console.log "Creating VM: #{vmName}"
     zone.createVM vmName, vmConfig, jenkinsWorkerCreationCallback
     i++
   return
@@ -189,7 +198,7 @@ jenkinsWorkerCreationCallback = (err, vm, operation, apiResponse) ->
     console.log 'Error creating VM'
     console.log err
     return
-  console.log 'VM creation call succeeded for: %s with %s', vm.name, operation.name
+  console.log "VM creation call succeeded for: #{vm.name} with #{operation.name}"
   return
 
 rootJobCompletedSuccessfully = (robot, gitBranch, jobName, number) ->
@@ -207,8 +216,7 @@ rootJobCompletedSuccessfully = (robot, gitBranch, jobName, number) ->
 
   req.get() (err, res, body) ->
     if err
-      errorMessage = "Getting job info from #{url} failed with status: #{err}"
-      console.log errorMessage
+      console.log "Getting job info from #{url} failed with status: #{err}"
     else if res.statusCode == 200
       json = JSON.parse(body)
       numberOfDownstreamJobs = json.downstreamProjects.length
@@ -221,8 +229,7 @@ rootJobCompletedSuccessfully = (robot, gitBranch, jobName, number) ->
       robot.brain.set number, buildData
       launchJenkinsWorkers(numberOfDownstreamJobs)
     else
-      message = "Getting job info from #{url} failed with status: #{res.statusCode}"
-      console.log message
+      console.log "Getting job info from #{url} failed with status: #{res.statusCode}"
 
 
 updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA) ->
