@@ -20,6 +20,10 @@ HUBOT_JENKINS_URL = process.env.HUBOT_JENKINS_URL
 HUBOT_JENKINS_AUTH = process.env.HUBOT_JENKINS_AUTH
 HUBOT_GITHUB_REPO = process.env.HUBOT_GITHUB_REPO
 
+JENKINS_JNLP_CREDENTIALS = process.env.JENKINS_JNLP_CREDENTIALS
+JENKINS_AGENT_AWS_ACCESS_KEY_ID = process.env.JENKINS_AGENT_AWS_ACCESS_KEY_ID
+JENKINS_AGENT_AWS_SECRET_ACCESS_KEY = process.env.JENKINS_AGENT_AWS_SECRET_ACCESS_KEY
+
 JENKINS_NOTIFICATION_ENDPOINT = process.env.JENKINS_NOTIFICATION_ENDPOINT or "/hubot/build-status"
 JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT = process.env.JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT or "/hubot/root-build-status"
 JENKINS_ROOT_JOB_NAME = process.env.JENKINS_ROOT_JOB_NAME or "pstat_ticket"
@@ -173,6 +177,26 @@ _createWorkersInZone = (workerIndexes, zoneName, timestamp) ->
       onHostMaintenance: 'TERMINATE'
       automaticRestart: false
       preemptible: true
+    }
+    metadata: {
+      items: [
+        {
+          key: "JENKINS_URL"
+          value: HUBOT_JENKINS_URL
+        },
+        {
+          key: "JNLP_CREDENTIALS"
+          value: JENKINS_JNLP_CREDENTIALS
+        },
+        {
+          key: "AWS_ACCESS_KEY_ID"
+          value: JENKINS_AGENT_AWS_ACCESS_KEY_ID
+        },
+        {
+          key: "AWS_SECRET_ACCESS_KEY"
+          value: JENKINS_AGENT_AWS_SECRET_ACCESS_KEY
+        },
+      ]
     }
   }
   console.log "Launching #{desiredMachineCount} machines in zone #{zone.name}"
