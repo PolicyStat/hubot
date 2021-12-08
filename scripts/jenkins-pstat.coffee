@@ -16,7 +16,7 @@ sprintf = require('sprintf-js').sprintf
 github = {}
 gce = {}
 
-CI_ENABLED = process.env.CI_ENABLED === 'true'
+CI_ENABLED = process.env.CI_ENABLED == 'true'
 
 HUBOT_JENKINS_URL = process.env.HUBOT_JENKINS_URL
 HUBOT_JENKINS_AUTH = process.env.HUBOT_JENKINS_AUTH
