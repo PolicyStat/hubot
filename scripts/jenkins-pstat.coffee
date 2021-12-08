@@ -16,6 +16,8 @@ sprintf = require('sprintf-js').sprintf
 github = {}
 gce = {}
 
+CI_ENABLED = process.env.CI_ENABLED
+
 HUBOT_JENKINS_URL = process.env.HUBOT_JENKINS_URL
 HUBOT_JENKINS_AUTH = process.env.HUBOT_JENKINS_AUTH
 HUBOT_GITHUB_REPO = process.env.HUBOT_GITHUB_REPO
@@ -370,9 +372,15 @@ module.exports = (robot) ->
     console.log "and body: #{response.body}"
 
   robot.respond /ci issue ([\d_]+)/i, (msg) ->
+    if CI_ENABLED is false
+      msg.send "CI system is currently disabled"
+      return
     jenkinsBuildIssue(robot, msg)
 
   robot.respond /ci workers ?(\d+)?/i, (msg) ->
+    if CI_ENABLED is false
+      msg.send "CI system is currently disabled"
+      return
     jenkinsLaunchWorkers(msg)
 
   robot.respond /message test/i, (msg) ->
