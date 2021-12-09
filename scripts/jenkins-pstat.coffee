@@ -23,6 +23,7 @@ HUBOT_JENKINS_AUTH = process.env.HUBOT_JENKINS_AUTH
 HUBOT_GITHUB_REPO = process.env.HUBOT_GITHUB_REPO
 
 JENKINS_JNLP_CREDENTIALS = process.env.JENKINS_JNLP_CREDENTIALS
+JENKINS_AGENT_LABEL = process.env.JENKINS_AGENT_LABEL
 JENKINS_AGENT_AWS_ACCESS_KEY_ID = process.env.JENKINS_AGENT_AWS_ACCESS_KEY_ID
 JENKINS_AGENT_AWS_SECRET_ACCESS_KEY = process.env.JENKINS_AGENT_AWS_SECRET_ACCESS_KEY
 
@@ -185,6 +186,10 @@ _createWorkersInZone = (workerIndexes, zoneName, timestamp) ->
         {
           key: "JENKINS_URL"
           value: HUBOT_JENKINS_URL
+        },
+        {
+          key: "JENKINS_AGENT_LABEL"
+          value: JENKINS_AGENT_LABEL
         },
         {
           key: "JNLP_CREDENTIALS"
