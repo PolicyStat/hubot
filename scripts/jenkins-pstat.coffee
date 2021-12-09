@@ -66,7 +66,7 @@ GITHUB_REPO_STATUS = {
   'SUCCESS': 'success',
 }
 
-launchJenkinsWorkers = (workerCount, forceLaunch) ->
+launchJenkinsWorkers = (workerCount, forceLaunch, options) ->
   instances = []
   zoneResultsCount = 0
 
@@ -102,7 +102,7 @@ launchJenkinsWorkers = (workerCount, forceLaunch) ->
     workerNumbersByZone = _distributeWorkersAcrossZones(workerCount, instanceCountByZone)
     timestamp = moment().format 'MMDD-HHmmss-SS'  # e.g. 0901-134102-09
     for zoneName of workerNumbersByZone
-      _createWorkersInZone workerNumbersByZone[zoneName], zoneName, timestamp
+      _createWorkersInZone(workerNumbersByZone[zoneName], zoneName, timestamp, options)
     return
 
   for zoneName in GCE_ZONE_NAMES
@@ -150,16 +150,25 @@ _distributeWorkersAcrossZones = (workerCount, instanceCountByZone) ->
     i += maxWorkersPerZone
   workerNumbersByZone
 
-_createWorkersInZone = (workerIndexes, zoneName, timestamp) ->
+_createWorkersInZone = (workerIndexes, zoneName, timestamp, options) ->
   zone = gce.zone(zoneName)
   desiredMachineCount = workerIndexes.length
+  sourceImage = options.image or GCE_DISK_SOURCE_IMAGE
+  jenkinsAgentLabel = options.label or JENKINS_AGENT_LABEL
+  jenkinsUrl = options.url or HUBOT_JENKINS_URL
+
+  console.log('sourceImage=', sourceImage)
+  console.log('jenkinsAgentLabel=', jenkinsAgentLabel)
+  console.log('jenkinsUrl=', jenkinsUrl)
+
+
   vmConfig = {
     machineType: GCE_MACHINE_TYPE
     disks: [
       {
         boot: true
         initializeParams: {
-          sourceImage: "global/images/#{ GCE_DISK_SOURCE_IMAGE }"
+          sourceImage: "global/images/#{ sourceImage }"
           diskType: 'zones/us-central1-a/diskTypes/pd-ssd'
         }
         autoDelete: true
@@ -185,11 +194,11 @@ _createWorkersInZone = (workerIndexes, zoneName, timestamp) ->
       items: [
         {
           key: "JENKINS_URL"
-          value: HUBOT_JENKINS_URL
+          value: jenkinsUrl
         },
         {
           key: "JENKINS_AGENT_LABEL"
-          value: JENKINS_AGENT_LABEL
+          value: jenkinsAgentLabel
         },
         {
           key: "JNLP_CREDENTIALS"
@@ -357,22 +366,18 @@ jenkinsLaunchWorkers = (msg) ->
     workerCount = msg.match[1]
     if not workerCount
       workerCount = 1
-    forceLaunch = true
 
     option_string = msg.match[2] or ''
     console.log('option_string', option_string)
+    options = new ->
+      for param in option_string.split(',')
+        params = param.split('=')
+        @[params[0]] = params[1]
+      this
 
-    if option_string?
-      options = new ->
-        for param in option_string.split(',')
-          params = param.split('=')
-          @[params[0]] = params[1]
-        this
-      console.log('image', options.image)
-      console.log('label', options.label)
-
-    launchJenkinsWorkers(workerCount, forceLaunch)
+    forceLaunch = true
     msg.send "Launching #{workerCount} Jenkins workers"
+    launchJenkinsWorkers(workerCount, forceLaunch, options)
 
 
 module.exports = (robot) ->
