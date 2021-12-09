@@ -152,7 +152,7 @@ _distributeWorkersAcrossZones = (workerCount, instanceCountByZone) ->
 
 _createWorkersInZone = (workerIndexes, zoneName, timestamp, options) ->
   desiredMachineCount = workerIndexes.length
-  if desiredMachineCount == 0:
+  if desiredMachineCount == 0
     return
 
   zone = gce.zone(zoneName)
