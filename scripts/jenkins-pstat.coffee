@@ -156,14 +156,21 @@ _createWorkersInZone = (workerIndexes, zoneName, timestamp, options) ->
     return
 
   zone = gce.zone(zoneName)
-  sourceImage = options.image or GCE_DISK_SOURCE_IMAGE
-  jenkinsAgentLabel = options.label or JENKINS_AGENT_LABEL
-  jenkinsUrl = options.url or HUBOT_JENKINS_URL
+  sourceImage = GCE_DISK_SOURCE_IMAGE
+  jenkinsAgentLabel = JENKINS_AGENT_LABEL
+  jenkinsUrl = HUBOT_JENKINS_URL
 
-  console.log('sourceImage=', sourceImage)
-  console.log('jenkinsAgentLabel=', jenkinsAgentLabel)
-  console.log('jenkinsUrl=', jenkinsUrl)
+  if options?
+    if options.image?
+      sourceImage = options.image
+    if options.label?
+      jenkinsAgentLabel = options.label
+    if options.url?
+      jenkinsUrl = options.url
 
+  console.log('sourceImage', sourceImage)
+  console.log('jenkinsAgentLabel', jenkinsAgentLabel)
+  console.log('jenkinsUrl', jenkinsUrl)
 
   vmConfig = {
     machineType: GCE_MACHINE_TYPE
