@@ -358,6 +358,19 @@ jenkinsLaunchWorkers = (msg) ->
     if not workerCount
       workerCount = 1
     forceLaunch = true
+
+    option_string = msg.match[2]
+    console.log('option_string', option_string)
+
+    options = new ->
+      for param in option_string.split(',')
+        params = param.split('=')
+        @[params[0]] = params[1]
+      this
+
+    console.log('image', options.image)
+    console.log('label', options.label)
+
     launchJenkinsWorkers(workerCount, forceLaunch)
     msg.send "Launching #{workerCount} Jenkins workers"
 
@@ -382,7 +395,7 @@ module.exports = (robot) ->
       return
     jenkinsBuildIssue(robot, msg)
 
-  robot.respond /ci workers ?(\d+)?/i, (msg) ->
+  robot.respond /ci workers ?(\d+)? ?([\S]*)/i, (msg) ->
     if CI_ENABLED is false
       msg.send "CI system is currently disabled"
       return
