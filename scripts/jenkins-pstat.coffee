@@ -359,17 +359,17 @@ jenkinsLaunchWorkers = (msg) ->
       workerCount = 1
     forceLaunch = true
 
-    option_string = msg.match[2]
+    option_string = msg.match[2] or ''
     console.log('option_string', option_string)
 
-    options = new ->
-      for param in option_string.split(',')
-        params = param.split('=')
-        @[params[0]] = params[1]
-      this
-
-    console.log('image', options.image)
-    console.log('label', options.label)
+    if option_string?
+      options = new ->
+        for param in option_string.split(',')
+          params = param.split('=')
+          @[params[0]] = params[1]
+        this
+      console.log('image', options.image)
+      console.log('label', options.label)
 
     launchJenkinsWorkers(workerCount, forceLaunch)
     msg.send "Launching #{workerCount} Jenkins workers"
