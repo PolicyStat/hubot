@@ -151,8 +151,11 @@ _distributeWorkersAcrossZones = (workerCount, instanceCountByZone) ->
   workerNumbersByZone
 
 _createWorkersInZone = (workerIndexes, zoneName, timestamp, options) ->
-  zone = gce.zone(zoneName)
   desiredMachineCount = workerIndexes.length
+  if desiredMachineCount == 0:
+    return
+
+  zone = gce.zone(zoneName)
   sourceImage = options.image or GCE_DISK_SOURCE_IMAGE
   jenkinsAgentLabel = options.label or JENKINS_AGENT_LABEL
   jenkinsUrl = options.url or HUBOT_JENKINS_URL
