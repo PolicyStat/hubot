@@ -278,36 +278,38 @@ jenkins_job_completed = (robot, job_name, build) ->
 
   jenkins_host = new URL(build.full_url).origin
 
-  buildId = build.parameters.ROOT_JOB_NUMBER or build.parameters.ROOT_JOB_UUID
-  buildData = robot.brain.get(buildId) or {}
-  buildData[BUILD_DATA.JOBS_STATUS][job_name] = build.status
-  buildData = robot.brain.set(buildId, buildData)
+  build_id = build.parameters.ROOT_JOB_NUMBER or build.parameters.ROOT_JOB_UUID
+  console.log "build_id:#{build_id} tests:#{build.test_summary}"
 
-  num_jobs_finished = Object.keys(buildData[BUILD_DATA.JOBS_STATUS]).length
+  build_data = robot.brain.get(build_id) or {}
+  build_data[BUILD_DATA.JOBS_STATUS][job_name] = build.status
+  robot.brain.set(build_id, build_data)
 
-  failedJobNames = []
-  allSucceeded = true
-  for job_name, jobStatus of buildData[BUILD_DATA.JOBS_STATUS]
-    if jobStatus != JENKINS_BUILD_STATUS.SUCCESS
-      allSucceeded = false
-      failedJobNames.push(job_name)
+  num_jobs_finished = Object.keys(build_data[BUILD_DATA.JOBS_STATUS]).length
 
-  statusDescription = "Success: All jobs completed successfully"
+  failed_job_names = []
+  all_success = true
+  for job_name, job_status of build_data[BUILD_DATA.JOBS_STATUS]
+    if job_status != JENKINS_BUILD_STATUS.SUCCESS
+      all_success = false
+      failed_job_names.push(job_name)
+
+  status_description = "Success: All jobs completed successfully"
   if not allSucceeded
-    statusDescription = "Failure: #{failedJobNames.length} jobs have failed"
+    status_description = "Failure: #{failed_job_names.length} jobs have failed"
 
-  if allSucceeded
+  if all_success
     github_status = GITHUB_REPO_STATUS.SUCCESS
   else
     github_status = GITHUB_REPO_STATUS.FAILURE
 
-  targetURL = "#{jenkins_host}/job/#{buildData[BUILD_DATA.ROOT_JOB_NAME]}/#{buildData[BUILD_DATA.ROOT_JOB_NUMBER]}"
+  target_url = "#{jenkins_host}/job/#{build_data[BUILD_DATA.ROOT_JOB_NAME]}/#{build_data[BUILD_DATA.ROOT_JOB_NUMBER]}"
 
   update_github_branch_status(
     git_branch: build.parameters.GIT_BRANCH
     status: github_status
-    target_url: targetURL
-    description: statusDescription
+    target_url: target_url
+    description: status_description
     commit_sha: build.parameters.GIT_COMMIT
   )
 
