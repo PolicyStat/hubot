@@ -84,8 +84,6 @@ jenkins_launch_workers = ({num_workers, force, image, label, jenkins_url}) ->
 
   _createWorkers = () ->
     instanceCountByZone = _getInstanceCountByZone(instances)
-    console.log { instanceCountByZone: instanceCountByZone }
-    console.log "instanceCountByZone: #{instanceCountByZone}"
 
     numRunningInstances = 0
     for zoneName of instanceCountByZone
