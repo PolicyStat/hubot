@@ -275,12 +275,10 @@ jenkins_root_job_completed_successfully = (robot, job_name, build) ->
       )
 
 jenkins_job_completed = (robot, job_name, build) ->
-  console.log "jenkins_job_completed(#{job_name})"
+  build_id = build.parameters.ROOT_JOB_UUID ? build.parameters.ROOT_BUILD_NUMBER
+  console.log "jenkins_job_completed(#{job_name},#{build.status},build_id=#{build_id})"
 
   jenkins_host = new URL(build.full_url).origin
-
-  build_id = build.parameters.ROOT_JOB_UUID ? build.parameters.ROOT_BUILD_NUMBER
-  console.log "build_id:#{build_id}"
 
   build_data = robot.brain.get(build_id) or {}
   build_data[BUILD_DATA.JOBS_STATUS][job_name] = build.status
@@ -288,18 +286,23 @@ jenkins_job_completed = (robot, job_name, build) ->
 
   num_jobs_finished = Object.keys(build_data[BUILD_DATA.JOBS_STATUS]).length
 
-  failed_job_names = []
+  failed_count = 0
+  passed_count = 0
   all_success = true
   for job_name, job_status of build_data[BUILD_DATA.JOBS_STATUS]
-    if job_status != JENKINS_BUILD_STATUS.SUCCESS
+    if job_status == JENKINS_BUILD_STATUS.SUCCESS
+      passed_count += 1
+    else
       all_success = false
-      failed_job_names.push(job_name)
+      failed_count += 1
+
+  console.log "Passed:#{passed_count} Failed:#{failed_count}"
 
   if all_success
-    status_description = "Success: All jobs completed successfully"
+    status_description = "#{passed_count} jobs completed successfully"
     github_status = GITHUB_REPO_STATUS.SUCCESS
   else
-    status_description = "Failure: #{failed_job_names.length} jobs have failed"
+    status_description = "#{failed_count} jobs have failed (#{passed_count} completed successfully)"
     github_status = GITHUB_REPO_STATUS.FAILURE
 
   target_url = "#{jenkins_host}/job/#{build_data[BUILD_DATA.ROOT_JOB_NAME]}/#{build_data[BUILD_DATA.ROOT_BUILD_NUMBER]}"
@@ -313,7 +316,7 @@ jenkins_job_completed = (robot, job_name, build) ->
   )
 
 update_github_branch_status = ({git_branch, status, target_url, description, commit_sha}) ->
-  console.log "branch:#{git_branch} commit:#{commit_sha} state:#{status}"
+  console.log "update_github_branch_status(#{git_branch},#{commit_sha},#{status})"
   repo = github.qualified_repo(HUBOT_GITHUB_REPO)
   data = (
     state: status
