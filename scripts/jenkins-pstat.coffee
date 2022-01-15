@@ -314,14 +314,12 @@ jenkins_job_completed = (robot, job_name, build) ->
 update_github_branch_status = ({git_branch, status, target_url, description, commit_sha}) ->
   console.log "branch: #{git_branch} commit:#{commit_sha} state:#{status}"
   repo = github.qualified_repo(HUBOT_GITHUB_REPO)
-
-  github.post(
-    "repos/#{repo}/statuses/#{commit_sha}",
+  data = (
     state: status
     target_url: target_url
     description: description
   )
-
+  github.post("repos/#{repo}/statuses/#{commit_sha}", data)
 
 _parse_ci_option_string = (raw_options) ->
   raw_options = raw_options or ''
