@@ -232,7 +232,10 @@ jenkins_root_job_completed_successfully = (robot, job_name, build) ->
 
   # build.notes has UUID, if set
   build_id = build.notes or build.number
-  console.log "branch:#{git_branch} id:#{build_id} notes:#{build.notes} number: #{build.number} jenkins:#{jenkins_host}"
+  worker_image = build.parameters.WORKER_IMAGE or GCE_DISK_SOURCE_IMAGE
+  worker_label = build.parameters.WORKER_LABEL or JENKINS_AGENT_LABEL
+
+  console.log "branch:#{git_branch} id:#{build_id} jenkins:#{jenkins_host}"
 
   url = "#{jenkins_host}/job/#{job_name}/api/json?tree=downstreamProjects[name]"
   req = robot.http(url)
@@ -260,8 +263,7 @@ jenkins_root_job_completed_successfully = (robot, job_name, build) ->
 
       robot.brain.set(build_id, build_data)
 
-      worker_image = build.parameters.WORKER_IMAGE or GCE_DISK_SOURCE_IMAGE
-      worker_label = build.parameters.WORKER_LABEL or JENKINS_AGENT_LABEL
+      num_workers = json.downstreamProjects.length
 
       jenkins_launch_workers(
         num_workers: num_workers
