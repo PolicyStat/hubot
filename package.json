@@ -16,7 +16,8 @@
     "hubot-redis-brain": "0.0.4",
     "moment": "^2.21.0",
     "sprintf-js": "^1.1.1",
-    "hash-stream-validation": "0.2.1"
+    "hash-stream-validation": "0.2.1",
+    "url-parse": "^1.5.4"
   },
   "engines": {
     "node": "4.x"

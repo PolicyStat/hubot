@@ -12,7 +12,7 @@
 # GCLOUD_PROJECT is passed in automatically from the env
 moment = require('moment')
 sprintf = require('sprintf-js').sprintf
-URL = require('url').URL
+URL = require('url-parse')
 
 github = {}
 gce = {}
