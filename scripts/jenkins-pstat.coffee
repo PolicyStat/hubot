@@ -48,8 +48,8 @@ BUILD_DATA = {
   'COMMIT_SHA': 'commit_SHA',
   'GIT_BRANCH': 'git_branch',
   'DOWNSTREAM_JOBS_COUNT': 'downstream_jobs_count',
-  'MARKED_AS_FINISHED': 'marked_as_finished',
   'ROOT_JOB_NAME': 'root_job_name',
+  'JOBS_STATUS': 'jobs_status',
 }
 JENKINS_BUILD_STATUS = {
   'FAILURE': 'FAILURE',
@@ -66,16 +66,15 @@ GITHUB_REPO_STATUS = {
   'SUCCESS': 'success',
 }
 
-launchJenkinsWorkers = (workerCount, forceLaunch, options) ->
+jenkins_launch_workers = ({count, force, image, label, jenkins_url}) ->
+  console.log "jenkins_launch_workers(#{count}, #{force}, #{image}, #{label} #{jenkins_url})"
+
   instances = []
   zoneResultsCount = 0
 
-  console.log "Received request to launch #{workerCount} workers"
-
   _aggregateVMsAcrossZones = (err, vms) ->
     if err
-      console.log 'Error retrieving current VM list'
-      console.log err
+      console.log 'Error retrieving current VM list', err
       return
     zoneResultsCount += 1
     instances = instances.concat(vms)
@@ -95,14 +94,21 @@ launchJenkinsWorkers = (workerCount, forceLaunch, options) ->
     for zoneName of instanceCountByZone
       numRunningInstances += instanceCountByZone[zoneName]
 
-    if forceLaunch isnt true and numRunningInstances >= workerCount
-      console.log "The requested number of workers #{workerCount} are already running"
+    if force isnt true and numRunningInstances >= num_workers
+      console.log "The requested number of workers #{num_workers} are already running"
       return
 
-    workerNumbersByZone = _distributeWorkersAcrossZones(workerCount, instanceCountByZone)
+    workerNumbersByZone = _distributeWorkersAcrossZones(num_workers, instanceCountByZone)
     timestamp = moment().format 'MMDD-HHmmss-SS'  # e.g. 0901-134102-09
     for zoneName of workerNumbersByZone
-      _createWorkersInZone(workerNumbersByZone[zoneName], zoneName, timestamp, options)
+      _createWorkersInZone(
+        workerIndexes: workerNumbersByZone[zoneName]
+        zoneName: zoneName
+        timestamp: timestamp
+        image: image
+        label: label
+        jenkins_url: jenkins_url
+      )
     return
 
   for zoneName in GCE_ZONE_NAMES
@@ -110,7 +116,7 @@ launchJenkinsWorkers = (workerCount, forceLaunch, options) ->
     # Determine which zones are busy, based on which currently have VMs,
     # so that we can spread our workers across zones.
     # This minimizes the likelihood of all of our workers being prempted at the same time.
-    zone.getVMs _aggregateVMsAcrossZones
+    zone.getVMs(_aggregateVMsAcrossZones)
 
   return
 
@@ -132,11 +138,11 @@ _getInstanceCountByZone = (instances) ->
       console.log "Ignoring #{instance.name} with status #{status}"
   instanceCountByZone
 
-_distributeWorkersAcrossZones = (workerCount, instanceCountByZone) ->
-  maxWorkersPerZone = Math.ceil(workerCount / GCE_ZONE_NAMES.length)
-  console.log "Placing a max of #{maxWorkersPerZone} workers in each zone"
+_distributeWorkersAcrossZones = (num_workers, instanceCountByZone) ->
+  maxWorkersPerZone = Math.ceil(num_workers / GCE_ZONE_NAMES.length)
+  console.log "Creating #{maxWorkersPerZone} instances in each zone"
 
-  workerIndexes = [0...workerCount]
+  workerIndexes = [0...num_workers]
 
   # Distribute the indexes evenly across the zones.
   # The last zones will get 1 less if it doesn't work out evenly.
@@ -146,31 +152,16 @@ _distributeWorkersAcrossZones = (workerCount, instanceCountByZone) ->
   workerNumbersByZone = {}
   for zoneName of instanceCountByZone
     workerNumbersByZone[zoneName] = workerIndexes[i .. (i+maxWorkersPerZone)-1]
-    console.log 'Zone', zoneName, 'will have workers:', workerNumbersByZone[zoneName]
+    console.log "Zone #{zoneName} will have workers: #{workerNumbersByZone[zoneName]}"
     i += maxWorkersPerZone
   workerNumbersByZone
 
-_createWorkersInZone = (workerIndexes, zoneName, timestamp, options) ->
+_createWorkersInZone = ({workerIndexes, zoneName, timestamp, image, label, jenkins_url}) ->
   desiredMachineCount = workerIndexes.length
   if desiredMachineCount == 0
     return
 
   zone = gce.zone(zoneName)
-  sourceImage = GCE_DISK_SOURCE_IMAGE
-  jenkinsAgentLabel = JENKINS_AGENT_LABEL
-  jenkinsUrl = HUBOT_JENKINS_URL
-
-  if options?
-    if options.image?
-      sourceImage = options.image
-    if options.label?
-      jenkinsAgentLabel = options.label
-    if options.url?
-      jenkinsUrl = options.url
-
-  console.log('sourceImage', sourceImage)
-  console.log('jenkinsAgentLabel', jenkinsAgentLabel)
-  console.log('jenkinsUrl', jenkinsUrl)
 
   vmConfig = {
     machineType: GCE_MACHINE_TYPE
@@ -178,7 +169,7 @@ _createWorkersInZone = (workerIndexes, zoneName, timestamp, options) ->
       {
         boot: true
         initializeParams: {
-          sourceImage: "global/images/#{ sourceImage }"
+          sourceImage: "global/images/#{ image }"
           diskType: 'zones/us-central1-a/diskTypes/pd-ssd'
         }
         autoDelete: true
@@ -204,11 +195,11 @@ _createWorkersInZone = (workerIndexes, zoneName, timestamp, options) ->
       items: [
         {
           key: "JENKINS_URL"
-          value: jenkinsUrl
+          value: jenkins_url
         },
         {
           key: "JENKINS_AGENT_LABEL"
-          value: jenkinsAgentLabel
+          value: label
         },
         {
           key: "JNLP_CREDENTIALS"
@@ -229,7 +220,6 @@ _createWorkersInZone = (workerIndexes, zoneName, timestamp, options) ->
   # The diskType config must be zone-specific
   vmConfig.disks[0].initializeParams.diskType = sprintf(DISK_TYPE_TPL, zone.name)
   if GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL.length > 0
-    # We have a service account, so let's give the machine read/write compute access
     vmConfig['serviceAccounts'] = [ {
       'email': GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL
       'scopes': [ 'https://www.googleapis.com/auth/compute' ]
@@ -238,25 +228,25 @@ _createWorkersInZone = (workerIndexes, zoneName, timestamp, options) ->
   while i < desiredMachineCount
     vmName = sprintf('worker-%s-%02d-%s', timestamp, workerIndexes[i], zoneName)
     console.log "Creating VM: #{vmName}"
-    zone.createVM vmName, vmConfig, jenkinsWorkerCreationCallback
+    zone.createVM(vmName, vmConfig) (err, vm, operation, response) ->
+      if err
+        console.log 'Error creating VM'
+        console.log err
+        return
+      console.log "VM creation call succeeded for: #{vm.name} with #{operation.name}"
     i++
   return
 
-jenkinsWorkerCreationCallback = (err, vm, operation, apiResponse) ->
-  if err
-    console.log 'Error creating VM'
-    console.log err
-    return
-  console.log "VM creation call succeeded for: #{vm.name} with #{operation.name}"
-  return
+jenkins_root_job_completed_successfully = (robot, job_name, build) ->
+  console.log "jenkins_root_job_completed_successfully(#{job_name}, #{build})"
+  git_branch = build.parameters.GIT_BRANCH
+  jenkins_host = new URL(build.full_url).origin
 
-rootJobCompletedSuccessfully = (robot, gitBranch, jobName, number) ->
-  console.log "rootJobCompletedSuccessfully #{gitBranch} #{jobName} #{number}"
-  baseUrl = HUBOT_JENKINS_URL
-  # We use the job base URL, instead of the URL for the specific run,
-  # because we need access to the `downstreamProjects` to know
-  # when all of the downstream jobs are actually finished
-  url = "#{baseUrl}/job/#{jobName}/api/json?tree=url,downstreamProjects"
+  # build.notes has UUID, if set
+  build_id = build.notes or build.number
+  console.log {build_id: build_id, number: build.number, notes: build.notes}
+
+  url = "#{jenkins_host}/job/#{job_name}/api/json?tree=downstreamProjects[name]"
   req = robot.http(url)
 
   if HUBOT_JENKINS_AUTH
@@ -265,25 +255,77 @@ rootJobCompletedSuccessfully = (robot, gitBranch, jobName, number) ->
 
   req.get() (err, res, body) ->
     if err
-      console.log "Getting job info from #{url} failed with status: #{err}"
+      console.log "Failed to get #{url}: #{err}"
+    else if res.statusCode != 200
+      console.log "Failed to get #{url}: #{res.statusCode}"
     else if res.statusCode == 200
       json = JSON.parse(body)
-      numberOfDownstreamJobs = json.downstreamProjects.length
+      build_data = robot.brain.get(build_id) or {}
+      build_data[BUILD_DATA.GIT_BRANCH] = git_branch
+      build_data[BUILD_DATA.ROOT_JOB_NAME] = job_name
+      build_data[BUILD_DATA.ROOT_JOB_NUMBER] = build.number
 
-      console.log "Storing root build data for #{number}"
-      buildData = robot.brain.get(number) or {}
-      buildData[BUILD_DATA.GIT_BRANCH] = gitBranch
-      buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT] = numberOfDownstreamJobs
-      buildData[BUILD_DATA.ROOT_JOB_NAME] = jobName
-      robot.brain.set number, buildData
-      launchJenkinsWorkers(numberOfDownstreamJobs)
-    else
-      console.log "Getting job info from #{url} failed with status: #{res.statusCode}"
+      # Initialize all the downstream jobs to FAILURE
+      build_data[BUILD_DATA.JOBS_STATUS] = {}
+      for downstream_job in json.downstreamProjects
+        build_data[BUILD_DATA.JOBS_STATUS][downstream_job.name] = JENKINS_BUILD_STATUS.FAILURE
 
+      robot.brain.set(build_id, build_data)
+
+      worker_image = build.parameters.WORKER_IMAGE or GCE_DISK_SOURCE_IMAGE
+      worker_label = build.parameters.WORKER_LABEL or JENKINS_AGENT_LABEL
+
+      jenkins_launch_workers(
+        count: num_workers
+        force: false
+        image: worker_image
+        label: worker_label
+        jenkins_url: jenkins_host
+      )
+
+jenkins_job_completed = (robot, job_name, build) ->
+  console.log "jenkins_job_completed #{job_name} status:#{build.status} params:#{build.parameters}"
+  jenkins_host = new URL(build.full_url).origin
+
+  buildId = build.parameters.ROOT_JOB_NUMBER or build.parameters.ROOT_JOB_UUID
+  buildData = robot.brain.get(buildId) or {}
+  buildData[BUILD_DATA.JOBS_STATUS][job_name] = build.status
+  buildData = robot.brain.set(buildId, buildData)
+
+  num_jobs_finished = Object.keys(buildData[BUILD_DATA.JOBS_STATUS]).length
+
+  console.log "Number of finished downstream builds from root build #{buildId}: #{num_jobs_finished}"
+
+  failedJobNames = []
+  allSucceeded = true
+  for job_name, jobStatus of buildData[BUILD_DATA.JOBS_STATUS]
+    if jobStatus != JENKINS_BUILD_STATUS.SUCCESS
+      allSucceeded = false
+      failedJobNames.push(job_name)
+
+  statusDescription = "Success: All downstream projects completed successfully"
+  if not allSucceeded
+    statusDescription = "Failure: " + failedJobNames.join(" ")
+
+  targetURL = "#{jenkins_host}/job/#{buildData[BUILD_DATA.ROOT_JOB_NAME]}"
+  github_status = GITHUB_REPO_STATUS.PENDING
+  if allSucceeded
+    if num_jobs_finished == buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT]
+      github_status = GITHUB_REPO_STATUS.SUCCESS
+  else
+      github_status = GITHUB_REPO_STATUS.FAILURE
+
+  updateGithubBranchStatus(
+    build.parameters.GIT_BRANCH,
+    github_status,
+    targetURL,
+    statusDescription,
+    build.parameters.GIT_COMMIT
+  )
 
 updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA) ->
-  console.log "Updating github branch #{branchName} at #{commitSHA} as #{state}"
-  repo = github.qualified_repo HUBOT_GITHUB_REPO
+  console.log "branch: #{branchName} commit:#{commitSHA} state:#{state}"
+  repo = github.qualified_repo(HUBOT_GITHUB_REPO)
 
   githubPostStatusUrl = "repos/#{repo}/statuses/#{commitSHA}"
   data = {
@@ -291,103 +333,80 @@ updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA
     target_url: targetURL,
     description: description,
   }
-  github.post githubPostStatusUrl, data, (comment_obj) ->
-    console.log "Github branch #{branchName} marked as #{state}."
+  github.post(githubPostStatusUrl, data)
 
 
-markGithubBranchAsFinished = (gitBranch, gitRevision, rootBuildNumber, buildStatuses, rootJobName) ->
-  console.log "markGithubBranchAsFinished #{rootBuildNumber}"
 
-  downstreamJobsCount = Object.keys(buildStatuses).length
+_parse_ci_option_string = (raw_options) ->
+  raw_options = raw_options or ''
 
-  failedJobNames = []
-  allSucceeded = true
-  for jobName, jobStatus of buildStatuses
-    if jobStatus != JENKINS_BUILD_STATUS.SUCCESS
-      allSucceeded = false
-      failedJobNames.push(jobName)
+  options = new ->
+    for param in raw_options.split(',')
+      params = param.split('=')
+      @[params[0]] = params[1]
+    this
 
-  if not allSucceeded
-    statusDescription = "Failed jobs: "
-    for failedJobName in failedJobNames
-      statusDescription += " #{failedJobName}"
-  else
-    statusDescription = "Build #{rootBuildNumber} succeeded! #{downstreamJobsCount} downstream projects completed successfully."
+  source_image = GCE_DISK_SOURCE_IMAGE
+  label = JENKINS_AGENT_LABEL
+  jenkins_url = HUBOT_JENKINS_URL
 
-  targetURL = "#{HUBOT_JENKINS_URL}/job/#{rootJobName}/#{rootBuildNumber}"
-  status = if allSucceeded then GITHUB_REPO_STATUS.SUCCESS else GITHUB_REPO_STATUS.FAILURE
-  updateGithubBranchStatus(gitBranch, status, targetURL, statusDescription, gitRevision)
+  if options?
+    if options.image?
+      source_image = options.image
+    if options.label?
+      label = options.label
+    if options.url?
+      jenkins_url = options.url
 
+  return (
+    image: source_image
+    label: label
+    jenkins_url: jenkins_url
+  )
 
-jenkinsBuildIssue = (robot, msg) ->
-    baseUrl = HUBOT_JENKINS_URL
-    issue = msg.match[1]
-    branch = "issue_#{issue}"
-    # Save the user's private room id so we can reply to it later on
-    channelId = msg.message.rawMessage.channel
-    console.log "channel ID is #{channelId}"
+handle_command_ci_workers = (msg) ->
+  if CI_ENABLED is false
+    msg.send "CI system is currently disabled"
+    return
 
-    url = "#{baseUrl}/job/#{JENKINS_ROOT_JOB_NAME}/buildWithParameters?GIT_BRANCH=#{branch}"
-    req = msg.http(url)
-    if HUBOT_JENKINS_AUTH
-      auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
-      req.headers Authorization: "Basic #{auth}"
+  num_workers = msg.match[1] or 1
+  options = _parse_ci_option_string(msg.match[2])
 
-    req.header('Content-Length', 0)
-    req.post() (err, res, body) ->
-        if err
-          message = "Jenkins reported an error: #{err}"
-        else if res.statusCode == 201
-          message = "#{JENKINS_ROOT_JOB_NAME} #{branch}: Queued"
-          robot.brain.set branch, channelId
-        else
-          message = "Jenkins responded with status code #{res.statusCode}"
-        robot.messageRoom channelId, message
+  jenkins_launch_workers(
+    count: num_workers
+    force: forceLaunch
+    image: options.image
+    label: options.label
+    jenkins_url: options.jenkins_url
+  )
 
 
-downstreamJobCompleted = (robot, jobName, rootBuildNumber, buildNumber, buildStatus, gitRevision, gitBranch) ->
-  console.log "downstreamJobCompleted #{jobName} #{rootBuildNumber} #{buildStatus} #{gitRevision} #{gitBranch}"
-  buildData = robot.brain.get(rootBuildNumber) or {}
+handle_command_ci_issue = (robot, msg) ->
+  if CI_ENABLED is false
+    msg.send "CI system is currently disabled"
+    return
 
-  statusesKey = "#{rootBuildNumber}_statuses"
-  buildStatuses = robot.brain.get(statusesKey) or {}
-  buildStatuses[jobName] = buildStatus
-  robot.brain.set statusesKey, buildStatuses
+  baseUrl = HUBOT_JENKINS_URL
+  issue = msg.match[1]
+  branch = "issue_#{issue}"
+  channelId = msg.message.rawMessage.channel
 
-  numFinishedDownstreamJobs = Object.keys(buildStatuses).length
-  console.log "Number of finished downstream builds from root build #{rootBuildNumber}: #{numFinishedDownstreamJobs}"
+  url = "#{baseUrl}/job/#{JENKINS_ROOT_JOB_NAME}/buildWithParameters?GIT_BRANCH=#{branch}"
+  req = msg.http(url)
+  if HUBOT_JENKINS_AUTH
+    auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
+    req.headers Authorization: "Basic #{auth}"
 
-  rootJobName = buildData[BUILD_DATA.ROOT_JOB_NAME]
-
-  if numFinishedDownstreamJobs is buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT]
-    markGithubBranchAsFinished(gitBranch, gitRevision, rootBuildNumber, buildStatuses, rootJobName)
-    buildData[BUILD_DATA.MARKED_AS_FINISHED] = true
-    robot.brain.set rootBuildNumber, buildData
-  else
-    if buildStatus is JENKINS_BUILD_STATUS.FAILURE
-      # This job failed. Even though all of the downstream jobs aren't finished,
-      # we can already mark the build as a failure.
-      targetURL = "#{HUBOT_JENKINS_URL}/job/#{rootJobName}/#{rootBuildNumber}"
-      description = "Build #{buildNumber} of #{jobName} failed"
-      updateGithubBranchStatus(gitBranch, GITHUB_REPO_STATUS.FAILURE, targetURL, description, gitRevision)
-
-
-jenkinsLaunchWorkers = (msg) ->
-    workerCount = msg.match[1]
-    if not workerCount
-      workerCount = 1
-
-    option_string = msg.match[2] or ''
-    console.log('option_string', option_string)
-    options = new ->
-      for param in option_string.split(',')
-        params = param.split('=')
-        @[params[0]] = params[1]
-      this
-
-    forceLaunch = true
-    msg.send "Launching #{workerCount} Jenkins workers"
-    launchJenkinsWorkers(workerCount, forceLaunch, options)
+  req.header('Content-Length', 0)
+  req.post() (err, res, body) ->
+      if err
+        message = "Jenkins reported an error: #{err}"
+      else if res.statusCode == 201
+        message = "#{JENKINS_ROOT_JOB_NAME} #{branch}: Queued"
+        robot.brain.set(branch, channelId)
+      else
+        message = "Jenkins responded with status code #{res.statusCode}"
+      robot.messageRoom(channelId, message)
 
 
 module.exports = (robot) ->
@@ -404,81 +423,39 @@ module.exports = (robot) ->
     console.log "and error message: #{response.error}"
     console.log "and body: #{response.body}"
 
-  robot.respond /ci issue ([\d_]+)/i, (msg) ->
-    if CI_ENABLED is false
-      msg.send "CI system is currently disabled"
-      return
-    jenkinsBuildIssue(robot, msg)
-
-  robot.respond /ci workers ?(\d+)? ?([\S]*)/i, (msg) ->
-    if CI_ENABLED is false
-      msg.send "CI system is currently disabled"
-      return
-    jenkinsLaunchWorkers(msg)
-
   robot.respond /message test/i, (msg) ->
     channelId = msg.message.rawMessage.channel
     robot.messageRoom channelId, "pong - channel ID is #{channelId}"
 
+  robot.respond /ci issue ([\d_]+)/i, (msg) ->
+    handle_command_ci_issue(robot, msg)
+
+  robot.respond /ci workers ?(\d+)? ?([\S]*)/i, (msg) ->
+    handle_command_ci_workers(msg)
+
   robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req, res) ->
     console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT}"
-    data = req.body
-
-    jobName = data.name
-    build = data.build
-    if not build
-      console.log "No build argument given. Exiting."
-      res.end "ok"
-      return
-
-    gitRevision = build.parameters.GIT_COMMIT
-    gitBranch = build.parameters.GIT_BRANCH
-    rootBuildNumber = build.parameters.ROOT_BUILD_NUMBER
-    buildNumber = build.number
-    buildPhase = build.phase
-    buildStatus = build.status
-
-    if buildPhase is JENKINS_BUILD_PHASE.COMPLETED
-      downstreamJobCompleted(robot, jobName, rootBuildNumber, buildNumber, buildStatus, gitRevision, gitBranch)
-
+    message = req.body
+    if message.build.phase is JENKINS_BUILD_PHASE.COMPLETED
+      jenkins_job_completed(robot, message.name, message.build)
     res.end "ok"
 
   robot.router.post JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT, (req, res) ->
     console.log "Post received on #{JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT}"
-    data = req.body
-    rootJobName = data.name
+    jenkins_job = req.body
+    jenkins_build = jenkins_job.build
+    root_job_name = jenkins_job.name
+    full_url = jenkins_build.full_url
+    git_branch = jenkins_build.params.GIT_BRANCH
+    slack_room = robot.brain.get(git_branch)
 
-    build = data.build
-    if not build
-      console.log "No build argument given. Exiting."
-      res.end "ok"
-      return
+    if jenkins_job.build.phase is JENKINS_BUILD_PHASE.STARTED
+      if slack_room
+        robot.messageRoom(slack_room, "<#{full_url}|#{root_job_name}/#{git_branch}>: Started")
 
-    gitBranch = build.parameters.GIT_BRANCH
-    if not gitBranch
-      console.log "No gitBranch argument given. Exiting."
-      res.end "ok"
-      return
-
-    rootBuildNumber = build.number
-    if not rootBuildNumber
-      console.log "No rootBuildNumber argument given. Exiting."
-      res.end "ok"
-      return
-
-    fullUrl = build.full_url
-
-    roomToPostMessagesTo = robot.brain.get gitBranch
-    if not roomToPostMessagesTo
-      roomToPostMessagesTo = process.env.HUBOT_SLACK_CHANNEL
-
-    if build.phase is JENKINS_BUILD_PHASE.STARTED
-      message = "#{rootJobName} #{gitBranch} #{rootBuildNumber}: Started (#{fullUrl})"
-      robot.messageRoom roomToPostMessagesTo, message
-
-    else if build.phase is JENKINS_BUILD_PHASE.COMPLETED and build.status is JENKINS_BUILD_STATUS.SUCCESS
-      message = "#{rootJobName} #{gitBranch} #{rootBuildNumber}: Completed successfully"
-      robot.messageRoom roomToPostMessagesTo, message
-      rootJobCompletedSuccessfully(robot, gitBranch, rootJobName, rootBuildNumber)
+    else if jenkins_build.phase is JENKINS_BUILD_PHASE.COMPLETED and jenkins_build.status is JENKINS_BUILD_STATUS.SUCCESS
+      if slack_room
+        robot.messageRoom(slack_room, "<#{full_url}|#{root_job_name}/#{git_branch}>: Completed Successfully :confetti_ball:")
+      jenkins_root_job_completed_successfully(robot, jenkins_job.name, jenkins_build)
 
     res.end "ok"
