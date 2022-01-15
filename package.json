@@ -19,6 +19,6 @@
     "hash-stream-validation": "0.2.1"
   },
   "engines": {
-    "node": "4.5.x"
+    "node": "14.x"
   }
 }
