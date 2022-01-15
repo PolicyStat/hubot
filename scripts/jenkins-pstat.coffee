@@ -294,13 +294,11 @@ jenkins_job_completed = (robot, job_name, build) ->
       all_success = false
       failed_job_names.push(job_name)
 
-  status_description = "Success: All jobs completed successfully"
-  if not allSucceeded
-    status_description = "Failure: #{failed_job_names.length} jobs have failed"
-
   if all_success
+    status_description = "Success: All jobs completed successfully"
     github_status = GITHUB_REPO_STATUS.SUCCESS
   else
+    status_description = "Failure: #{failed_job_names.length} jobs have failed"
     github_status = GITHUB_REPO_STATUS.FAILURE
 
   target_url = "#{jenkins_host}/job/#{build_data[BUILD_DATA.ROOT_JOB_NAME]}/#{build_data[BUILD_DATA.ROOT_JOB_NUMBER]}"
