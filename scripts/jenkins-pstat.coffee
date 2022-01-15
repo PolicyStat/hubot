@@ -67,7 +67,7 @@ GITHUB_REPO_STATUS = {
 }
 
 jenkins_launch_workers = ({num_workers, force, image, label, jenkins_url}) ->
-  console.log "jenkins_launch_workers(#{num_workers}, #{force}, #{image}, #{label} #{jenkins_url})"
+  console.log "jenkins_launch_workers(#{num_workers},#{force},#{image},#{label},#{jenkins_url})"
 
   instances = []
   zoneResultsCount = 0
@@ -228,7 +228,7 @@ _createWorkersInZone = ({workerIndexes, zoneName, timestamp, image, label, jenki
   while i < desiredMachineCount
     vmName = sprintf('worker-%s-%02d-%s', timestamp, workerIndexes[i], zoneName)
     console.log "Creating VM: #{vmName}"
-    zone.createVM(vmName, vmConfig) (err, vm, operation, response) ->
+    zone.createVM vmName, vmConfig, (err, vm, operation, response) ->
       if err
         console.log 'Error creating VM'
         console.log err
