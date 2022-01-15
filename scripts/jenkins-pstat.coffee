@@ -47,7 +47,6 @@ DISK_TYPE_TPL = 'zones/%s/diskTypes/pd-ssd'
 BUILD_DATA = {
   'COMMIT_SHA': 'commit_SHA',
   'GIT_BRANCH': 'git_branch',
-  'DOWNSTREAM_JOBS_COUNT': 'downstream_jobs_count',
   'ROOT_JOB_NAME': 'root_job_name',
   'JOBS_STATUS': 'jobs_status',
 }
@@ -226,13 +225,13 @@ _createWorkersInZone = ({workerIndexes, zoneName, timestamp, image, label, jenki
     i++
 
 jenkins_root_job_completed_successfully = (robot, job_name, build) ->
-  console.log "jenkins_root_job_completed_successfully(#{job_name}, #{build})"
+  console.log "jenkins_root_job_completed_successfully(#{job_name})"
   git_branch = build.parameters.GIT_BRANCH
   jenkins_host = new URL(build.full_url).origin
 
   # build.notes has UUID, if set
   build_id = build.notes or build.number
-  console.log {build_id: build_id, number: build.number, notes: build.notes}
+  console.log "branch:#{git_branch} id:#{build_id} notes:#{build.notes} number: #{build.number} jenkins:#{jenkins_host}"
 
   url = "#{jenkins_host}/job/#{job_name}/api/json?tree=downstreamProjects[name]"
   req = robot.http(url)
@@ -272,7 +271,8 @@ jenkins_root_job_completed_successfully = (robot, job_name, build) ->
       )
 
 jenkins_job_completed = (robot, job_name, build) ->
-  console.log "jenkins_job_completed #{job_name} status:#{build.status} params:#{build.parameters}"
+  console.log "jenkins_job_completed(#{job_name})"
+
   jenkins_host = new URL(build.full_url).origin
 
   buildId = build.parameters.ROOT_JOB_NUMBER or build.parameters.ROOT_JOB_UUID
@@ -282,8 +282,6 @@ jenkins_job_completed = (robot, job_name, build) ->
 
   num_jobs_finished = Object.keys(buildData[BUILD_DATA.JOBS_STATUS]).length
 
-  console.log "Number of finished downstream builds from root build #{buildId}: #{num_jobs_finished}"
-
   failedJobNames = []
   allSucceeded = true
   for job_name, jobStatus of buildData[BUILD_DATA.JOBS_STATUS]
@@ -291,37 +289,36 @@ jenkins_job_completed = (robot, job_name, build) ->
       allSucceeded = false
       failedJobNames.push(job_name)
 
-  statusDescription = "Success: All downstream projects completed successfully"
+  statusDescription = "Success: All jobs completed successfully"
   if not allSucceeded
-    statusDescription = "Failure: " + failedJobNames.join(" ")
+    statusDescription = "Failure: #{failedJobNames.length} jobs have failed"
 
-  targetURL = "#{jenkins_host}/job/#{buildData[BUILD_DATA.ROOT_JOB_NAME]}"
-  github_status = GITHUB_REPO_STATUS.PENDING
   if allSucceeded
-    if num_jobs_finished == buildData[BUILD_DATA.DOWNSTREAM_JOBS_COUNT]
-      github_status = GITHUB_REPO_STATUS.SUCCESS
+    github_status = GITHUB_REPO_STATUS.SUCCESS
   else
-      github_status = GITHUB_REPO_STATUS.FAILURE
+    github_status = GITHUB_REPO_STATUS.FAILURE
 
-  updateGithubBranchStatus(
-    build.parameters.GIT_BRANCH,
-    github_status,
-    targetURL,
-    statusDescription,
-    build.parameters.GIT_COMMIT
+  targetURL = "#{jenkins_host}/job/#{buildData[BUILD_DATA.ROOT_JOB_NAME]}/#{buildData[BUILD_DATA.ROOT_JOB_NUMBER]}"
+
+  update_github_branch_status(
+    git_branch: build.parameters.GIT_BRANCH
+    status: github_status
+    target_url: targetURL
+    description: statusDescription
+    commit_sha: build.parameters.GIT_COMMIT
   )
 
-updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA) ->
-  console.log "branch: #{branchName} commit:#{commitSHA} state:#{state}"
+update_github_branch_status = ({git_branch, status, target_url, description, commit_sha}) ->
+  console.log "branch: #{git_branch} commit:#{commit_sha} state:#{status}"
   repo = github.qualified_repo(HUBOT_GITHUB_REPO)
 
-  githubPostStatusUrl = "repos/#{repo}/statuses/#{commitSHA}"
-  data = {
-    state: state,
-    target_url: targetURL,
-    description: description,
-  }
-  github.post(githubPostStatusUrl, data)
+  github.post(
+    "repos/#{repo}/statuses/#{commit_sha}",
+    state: status
+    target_url: target_url
+    description: description
+  )
+
 
 _parse_ci_option_string = (raw_options) ->
   raw_options = raw_options or ''
@@ -432,7 +429,7 @@ module.exports = (robot) ->
     jenkins_build = jenkins_job.build
     root_job_name = jenkins_job.name
     full_url = jenkins_build.full_url
-    git_branch = jenkins_build.params.GIT_BRANCH
+    git_branch = jenkins_build.parameters.GIT_BRANCH
     slack_room = robot.brain.get(git_branch)
 
     if jenkins_job.build.phase is JENKINS_BUILD_PHASE.STARTED
