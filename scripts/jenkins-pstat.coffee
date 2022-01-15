@@ -279,7 +279,7 @@ jenkins_job_completed = (robot, job_name, build) ->
   jenkins_host = new URL(build.full_url).origin
 
   build_id = build.parameters.ROOT_JOB_NUMBER or build.parameters.ROOT_JOB_UUID
-  console.log "build_id:#{build_id} tests:#{build.test_summary}"
+  console.log "build_id:#{build_id} tests:", build.test_summary
 
   build_data = robot.brain.get(build_id) or {}
   build_data[BUILD_DATA.JOBS_STATUS][job_name] = build.status
