@@ -49,6 +49,7 @@ BUILD_DATA = {
   'COMMIT_SHA': 'commit_SHA',
   'GIT_BRANCH': 'git_branch',
   'ROOT_JOB_NAME': 'root_job_name',
+  'ROOT_BUILD_NUMBER': 'root_build_number',
   'JOBS_STATUS': 'jobs_status',
 }
 JENKINS_BUILD_STATUS = {
@@ -254,7 +255,7 @@ jenkins_root_job_completed_successfully = (robot, job_name, build) ->
       build_data = robot.brain.get(build_id) or {}
       build_data[BUILD_DATA.GIT_BRANCH] = git_branch
       build_data[BUILD_DATA.ROOT_JOB_NAME] = job_name
-      build_data[BUILD_DATA.ROOT_JOB_NUMBER] = build.number
+      build_data[BUILD_DATA.ROOT_BUILD_NUMBER] = build.number
 
       # Initialize all the downstream jobs to FAILURE
       build_data[BUILD_DATA.JOBS_STATUS] = {}
@@ -278,11 +279,7 @@ jenkins_job_completed = (robot, job_name, build) ->
 
   jenkins_host = new URL(build.full_url).origin
 
-  if build.parameters.ROOT_JOB_UUID?
-    build_id = build.parameters.ROOT_JOB_UUID
-  else
-    build_id = build.parameters.ROOT_JOB_NUMBER
-
+  build_id = build.parameters.ROOT_JOB_UUID ? build.parameters.ROOT_BUILD_NUMBER
   console.log "build_id:#{build_id}"
 
   build_data = robot.brain.get(build_id) or {}
@@ -305,7 +302,7 @@ jenkins_job_completed = (robot, job_name, build) ->
     status_description = "Failure: #{failed_job_names.length} jobs have failed"
     github_status = GITHUB_REPO_STATUS.FAILURE
 
-  target_url = "#{jenkins_host}/job/#{build_data[BUILD_DATA.ROOT_JOB_NAME]}/#{build_data[BUILD_DATA.ROOT_JOB_NUMBER]}"
+  target_url = "#{jenkins_host}/job/#{build_data[BUILD_DATA.ROOT_JOB_NAME]}/#{build_data[BUILD_DATA.ROOT_BUILD_NUMBER]}"
 
   update_github_branch_status(
     git_branch: build.parameters.GIT_BRANCH
