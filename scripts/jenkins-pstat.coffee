@@ -374,7 +374,7 @@ handle_command_ci_workers = (msg) ->
 
   jenkins_launch_workers(
     count: num_workers
-    force: forceLaunch
+    force: true
     image: options.image
     label: options.label
     jenkins_url: options.jenkins_url
