@@ -12,6 +12,7 @@
 # GCLOUD_PROJECT is passed in automatically from the env
 moment = require('moment')
 sprintf = require('sprintf-js').sprintf
+URL = require('url').URL
 
 github = {}
 gce = {}
@@ -417,14 +418,12 @@ module.exports = (robot) ->
     handle_command_ci_workers(msg)
 
   robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req, res) ->
-    console.log "Post received on #{JENKINS_NOTIFICATION_ENDPOINT}"
     message = req.body
     if message.build.phase is JENKINS_BUILD_PHASE.COMPLETED
       jenkins_job_completed(robot, message.name, message.build)
     res.end "ok"
 
   robot.router.post JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT, (req, res) ->
-    console.log "Post received on #{JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT}"
     jenkins_job = req.body
     jenkins_build = jenkins_job.build
     root_job_name = jenkins_job.name
