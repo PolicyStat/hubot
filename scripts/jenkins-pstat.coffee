@@ -79,16 +79,13 @@ jenkins_launch_workers = ({num_workers, force, image, label, jenkins_url}) ->
     zoneResultsCount += 1
     instances = instances.concat(vms)
     remaining = GCE_ZONE_NAMES.length - zoneResultsCount
-    if remaining > 0
-      console.log "VM list pending for #{remaining} more zone(s)"
-    else
-      console.log 'Finished building list of instances. Preparing to create workers'
+    if remaining <= 0
       _createWorkers()
-    return
 
   _createWorkers = () ->
     instanceCountByZone = _getInstanceCountByZone(instances)
-    console.log 'instanceCountByZone', instanceCountByZone
+    console.log { instanceCountByZone: instanceCountByZone }
+    console.log "instanceCountByZone: #{instanceCountByZone}"
 
     numRunningInstances = 0
     for zoneName of instanceCountByZone
@@ -109,7 +106,6 @@ jenkins_launch_workers = ({num_workers, force, image, label, jenkins_url}) ->
         label: label
         jenkins_url: jenkins_url
       )
-    return
 
   for zoneName in GCE_ZONE_NAMES
     zone = gce.zone(zoneName)
@@ -117,8 +113,6 @@ jenkins_launch_workers = ({num_workers, force, image, label, jenkins_url}) ->
     # so that we can spread our workers across zones.
     # This minimizes the likelihood of all of our workers being prempted at the same time.
     zone.getVMs(_aggregateVMsAcrossZones)
-
-  return
 
 _getInstanceCountByZone = (instances) ->
   instanceCountByZone = {}
@@ -140,8 +134,6 @@ _getInstanceCountByZone = (instances) ->
 
 _distributeWorkersAcrossZones = (num_workers, instanceCountByZone) ->
   maxWorkersPerZone = Math.ceil(num_workers / GCE_ZONE_NAMES.length)
-  console.log "Creating #{maxWorkersPerZone} instances in each zone"
-
   workerIndexes = [0...num_workers]
 
   # Distribute the indexes evenly across the zones.
@@ -152,7 +144,6 @@ _distributeWorkersAcrossZones = (num_workers, instanceCountByZone) ->
   workerNumbersByZone = {}
   for zoneName of instanceCountByZone
     workerNumbersByZone[zoneName] = workerIndexes[i .. (i+maxWorkersPerZone)-1]
-    console.log "Zone #{zoneName} will have workers: #{workerNumbersByZone[zoneName]}"
     i += maxWorkersPerZone
   workerNumbersByZone
 
@@ -235,7 +226,6 @@ _createWorkersInZone = ({workerIndexes, zoneName, timestamp, image, label, jenki
         return
       console.log "VM creation call succeeded for: #{vm.name} with #{operation.name}"
     i++
-  return
 
 jenkins_root_job_completed_successfully = (robot, job_name, build) ->
   console.log "jenkins_root_job_completed_successfully(#{job_name}, #{build})"
@@ -335,8 +325,6 @@ updateGithubBranchStatus = (branchName, state, targetURL, description, commitSHA
   }
   github.post(githubPostStatusUrl, data)
 
-
-
 _parse_ci_option_string = (raw_options) ->
   raw_options = raw_options or ''
 
@@ -379,7 +367,7 @@ handle_command_ci_workers = (msg) ->
     label: options.label
     jenkins_url: options.jenkins_url
   )
-
+  msg.send "Launching #{num_workers} Jenkins workers"
 
 handle_command_ci_issue = (robot, msg) ->
   if CI_ENABLED is false
