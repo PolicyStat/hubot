@@ -66,8 +66,8 @@ GITHUB_REPO_STATUS = {
   'SUCCESS': 'success',
 }
 
-jenkins_launch_workers = ({count, force, image, label, jenkins_url}) ->
-  console.log "jenkins_launch_workers(#{count}, #{force}, #{image}, #{label} #{jenkins_url})"
+jenkins_launch_workers = ({num_workers, force, image, label, jenkins_url}) ->
+  console.log "jenkins_launch_workers(#{num_workers}, #{force}, #{image}, #{label} #{jenkins_url})"
 
   instances = []
   zoneResultsCount = 0
@@ -276,7 +276,7 @@ jenkins_root_job_completed_successfully = (robot, job_name, build) ->
       worker_label = build.parameters.WORKER_LABEL or JENKINS_AGENT_LABEL
 
       jenkins_launch_workers(
-        count: num_workers
+        num_workers: num_workers
         force: false
         image: worker_image
         label: worker_label
@@ -373,7 +373,7 @@ handle_command_ci_workers = (msg) ->
   options = _parse_ci_option_string(msg.match[2])
 
   jenkins_launch_workers(
-    count: num_workers
+    num_workers: num_workers
     force: true
     image: options.image
     label: options.label
