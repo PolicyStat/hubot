@@ -296,7 +296,7 @@ jenkins_job_completed = (robot, job_name, build) ->
       all_success = false
       failed_count += 1
 
-  console.log "Passed:#{passed_count} Failed:#{failed_count}"
+  console.log "#{build_id} Passed:#{passed_count} Failed:#{failed_count}"
 
   if all_success
     status_description = "#{passed_count} jobs completed successfully"
@@ -307,24 +307,25 @@ jenkins_job_completed = (robot, job_name, build) ->
 
   target_url = "#{jenkins_host}/job/#{build_data[BUILD_DATA.ROOT_JOB_NAME]}/#{build_data[BUILD_DATA.ROOT_BUILD_NUMBER]}"
 
-  update_github_branch_status(
-    git_branch: build.parameters.GIT_BRANCH
+  git_branch = build.parameters.GIT_BRANCH
+  commit_sha = build.parameters.GIT_COMMIT
+  console.log "#{build_id} updating github branch status: #{git_branch} #{commit_sha} #{status}"
+  update_github_commit_status(
+    commit_sha: commit_sha
     status: github_status
     target_url: target_url
     description: status_description
-    commit_sha: build.parameters.GIT_COMMIT
   )
 
-update_github_branch_status = ({git_branch, status, target_url, description, commit_sha}) ->
-  console.log "update_github_branch_status(#{git_branch},#{commit_sha},#{status})"
+update_github_commit_status = ({commit_sha, status, target_url, description}) ->
   repo = github.qualified_repo(HUBOT_GITHUB_REPO)
   data = (
     state: status
     target_url: target_url
     description: description
   )
-  empty_callback_func = ->
-  github.post("repos/#{repo}/statuses/#{commit_sha}", data, empty_callback_func)
+  callback_func = ->
+  github.post("repos/#{repo}/statuses/#{commit_sha}", data, callback_func)
 
 _parse_ci_option_string = (raw_options) ->
   raw_options = raw_options or ''
