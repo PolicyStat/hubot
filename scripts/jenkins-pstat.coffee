@@ -309,7 +309,7 @@ jenkins_job_completed = (robot, job_name, build) ->
 
   git_branch = build.parameters.GIT_BRANCH
   commit_sha = build.parameters.GIT_COMMIT
-  console.log "#{build_id} updating github branch status: #{git_branch} #{commit_sha} #{status}"
+  console.log "#{build_id} updating github branch status: #{git_branch} #{commit_sha} #{github_status}"
   update_github_commit_status(
     commit_sha: commit_sha
     status: github_status
