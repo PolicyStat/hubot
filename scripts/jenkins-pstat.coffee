@@ -286,14 +286,14 @@ jenkins_job_completed = (robot, job_name, build) ->
   cache_set(robot, build_id, job_name, build.status)
 
   downstream_jobs = cache_get(robot, build_id, BUILD_DATA.JOBS)
-  root_job_name = cache_get(build_id, BUILD_DATA.ROOT_JOB_NAME)
-  root_build_number = cache_get(build_id, BUILD_DATA.ROOT_BUILD_NUMBER)
+  root_job_name = cache_get(robot, build_id, BUILD_DATA.ROOT_JOB_NAME)
+  root_build_number = cache_get(robot, build_id, BUILD_DATA.ROOT_BUILD_NUMBER)
 
   failed_count = 0
   passed_count = 0
   all_success = true
   for job_name in downstream_jobs
-    job_status = cache_get(build_id, job_name)
+    job_status = cache_get(robot, build_id, job_name)
     if job_status == JENKINS_BUILD_STATUS.SUCCESS
       passed_count += 1
     else
