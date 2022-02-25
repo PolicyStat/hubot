@@ -294,6 +294,7 @@ jenkins_job_completed = (robot, job_name, build) ->
   all_success = true
   for job_name in downstream_jobs
     job_status = cache_get(robot, build_id, job_name)
+    console.log(build_id, job_name, job_status)
     if job_status == JENKINS_BUILD_STATUS.SUCCESS
       passed_count += 1
     else
