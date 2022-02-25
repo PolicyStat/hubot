@@ -283,7 +283,7 @@ jenkins_job_completed = (robot, job_name, build) ->
 
   jenkins_host = new URL(build.full_url).origin
 
-  cache_set(build_id, job_name, build.status)
+  cache_set(robot, build_id, job_name, build.status)
 
   downstream_jobs = cache_get(robot, build_id, BUILD_DATA.JOBS)
   root_job_name = cache_get(build_id, BUILD_DATA.ROOT_JOB_NAME)
