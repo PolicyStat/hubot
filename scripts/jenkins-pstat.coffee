@@ -260,11 +260,15 @@ jenkins_root_job_completed_successfully = (robot, job_name, build) ->
       json = JSON.parse(body)
       cache_set(robot, build_id, BUILD_DATA.ROOT_JOB_NAME, job_name)
       cache_set(robot, build_id, BUILD_DATA.ROOT_BUILD_NUMBER, build.number)
-      cache_set(robot, build_id, BUILD_DATA.JOBS, json.downstreamProjects)
 
       # Initialize all the downstream jobs to FAILURE
+      downstream_jobs = []
       for downstream_job in json.downstreamProjects
+        downstream_jobs.push(downstream_job.name)
         cache_set(robot, build_id, downstream_job.name, JENKINS_BUILD_STATUS.FAILURE)
+
+      console.log "#{build_id} #{downstream_jobs}"
+      cache_set(robot, build_id, BUILD_DATA.JOBS, downstream_jobs)
 
       num_workers = json.downstreamProjects.length
 
