@@ -50,7 +50,7 @@ BUILD_DATA = {
   'GIT_BRANCH': 'git_branch',
   'ROOT_JOB_NAME': 'root_job_name',
   'ROOT_BUILD_NUMBER': 'root_build_number',
-  'JOBS_STATUS': 'jobs_status',
+  'JOBS': 'jobs',
 }
 JENKINS_BUILD_STATUS = {
   'FAILURE': 'FAILURE',
@@ -226,6 +226,13 @@ _createWorkersInZone = ({workerIndexes, zoneName, timestamp, image, label, jenki
       console.log "VM creation call succeeded for: #{vm.name} with #{operation.name}"
     i++
 
+
+cache_set = (robot, namespace, key, value) ->
+  robot.brain.set("#{namespace}-#{key}", value)
+
+cache_get = (robot, namespace, key) ->
+  return robot.brain.get("#{namespace}-#{key}")
+
 jenkins_root_job_completed_successfully = (robot, job_name, build) ->
   console.log "jenkins_root_job_completed_successfully(#{job_name})"
   git_branch = build.parameters.GIT_BRANCH
@@ -252,17 +259,13 @@ jenkins_root_job_completed_successfully = (robot, job_name, build) ->
       console.log "Failed to get #{url}: #{res.statusCode}"
     else if res.statusCode == 200
       json = JSON.parse(body)
-      build_data = robot.brain.get(build_id) or {}
-      build_data[BUILD_DATA.GIT_BRANCH] = git_branch
-      build_data[BUILD_DATA.ROOT_JOB_NAME] = job_name
-      build_data[BUILD_DATA.ROOT_BUILD_NUMBER] = build.number
+      cache_set(robot, build_id, BUILD_DATA.ROOT_JOB_NAME, job_name)
+      cache_set(robot, build_id, BUILD_DATA.ROOT_BUILD_NUMBER, build.number)
+      cache_set(robot, build_id, BUILD_DATA.JOBS, json.downstreamProjects)
 
       # Initialize all the downstream jobs to FAILURE
-      build_data[BUILD_DATA.JOBS_STATUS] = {}
       for downstream_job in json.downstreamProjects
-        build_data[BUILD_DATA.JOBS_STATUS][downstream_job.name] = JENKINS_BUILD_STATUS.FAILURE
-
-      robot.brain.set(build_id, build_data)
+        cache_set(robot, build_id, downstream_job.name, JENKINS_BUILD_STATUS.FAILURE)
 
       num_workers = json.downstreamProjects.length
 
@@ -280,16 +283,17 @@ jenkins_job_completed = (robot, job_name, build) ->
 
   jenkins_host = new URL(build.full_url).origin
 
-  build_data = robot.brain.get(build_id) or {}
-  build_data[BUILD_DATA.JOBS_STATUS][job_name] = build.status
-  robot.brain.set(build_id, build_data)
+  cache_set(build_id, downstream_job.name, build.status)
 
-  num_jobs_finished = Object.keys(build_data[BUILD_DATA.JOBS_STATUS]).length
+  downstream_jobs = cache_get(robot, build_id, BUILD_DATA.JOBS)
+  root_job_name = cache_get(build_id, BUILD_DATA.ROOT_JOB_NAME)
+  root_build_number = cache_get(build_id, BUILD_DATA.ROOT_BUILD_NUMBER)
 
   failed_count = 0
   passed_count = 0
   all_success = true
-  for job_name, job_status of build_data[BUILD_DATA.JOBS_STATUS]
+  for job_name in downstream_jobs
+    job_status = cache_get(build_id, job_name)
     if job_status == JENKINS_BUILD_STATUS.SUCCESS
       passed_count += 1
     else
@@ -305,7 +309,7 @@ jenkins_job_completed = (robot, job_name, build) ->
     status_description = "#{failed_count} jobs have failed (#{passed_count} completed successfully)"
     github_status = GITHUB_REPO_STATUS.FAILURE
 
-  target_url = "#{jenkins_host}/job/#{build_data[BUILD_DATA.ROOT_JOB_NAME]}/#{build_data[BUILD_DATA.ROOT_BUILD_NUMBER]}"
+  target_url = "#{jenkins_host}/job/#{root_job_name}/#{root_build_number}"
 
   git_branch = build.parameters.GIT_BRANCH
   commit_sha = build.parameters.GIT_COMMIT
