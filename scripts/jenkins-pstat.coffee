@@ -75,7 +75,7 @@ jenkins_launch_workers = ({num_workers, force, image, label, jenkins_url}) ->
 
   _aggregateVMsAcrossZones = (err, vms) ->
     if err
-      console.log 'Error retrieving current VM list', err
+      console.log "Error retrieving current VM list: #{err}"
       return
     zoneResultsCount += 1
     instances = instances.concat(vms)
@@ -220,10 +220,9 @@ _createWorkersInZone = ({workerIndexes, zoneName, timestamp, image, label, jenki
     console.log "Creating VM: #{vmName}"
     zone.createVM vmName, vmConfig, (err, vm, operation, response) ->
       if err
-        console.log 'Error creating VM'
-        console.log err
-        return
-      console.log "VM creation call succeeded for: #{vm.name} with #{operation.name}"
+        console.log "Error creating #{vm.name}: #{err}"
+      else
+        console.log "VM creation call succeeded for: #{vm.name} with #{operation.name}"
     i++
 
 
@@ -294,7 +293,6 @@ jenkins_job_completed = (robot, job_name, build) ->
   all_success = true
   for job_name in downstream_jobs
     job_status = cache_get(robot, build_id, job_name)
-    console.log(build_id, job_name, job_status)
     if job_status == JENKINS_BUILD_STATUS.SUCCESS
       passed_count += 1
     else
