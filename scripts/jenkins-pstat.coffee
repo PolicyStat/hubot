@@ -280,12 +280,7 @@ jenkins_root_job_completed_successfully = (robot, job_name, build) ->
         jenkins_url: jenkins_host
       )
 
-jenkins_job_completed = (robot, job_name, build) ->
-  build_id = build.parameters.ROOT_JOB_UUID ? build.parameters.ROOT_BUILD_NUMBER
-  console.log "jenkins_job_completed(#{job_name},#{build.status},build_id=#{build_id})"
-
-  jenkins_host = new URL(build.full_url).origin
-
+jenkins_job_completed = (robot, job_name, build, build_id) ->
   cache_set(robot, build_id, job_name, build.status)
 
   downstream_jobs = cache_get(robot, build_id, BUILD_DATA.JOBS)
@@ -306,17 +301,16 @@ jenkins_job_completed = (robot, job_name, build) ->
   failed_count = failed_jobs.length
   console.log "#{build_id} Passed:#{passed_count} Failed:#{failed_count}"
 
+  status_description = "#{passed_count} passed. #{failed_count} failed: #{failed_jobs.join(' ')}"
+  github_state = GITHUB_COMMIT_STATE.FAILURE
   if all_success
-    status_description = "Success: #{passed_count} passed"
     github_state = GITHUB_COMMIT_STATE.SUCCESS
-  else
-    status_description = "#{failed_count} failed, #{passed_count} passed. Failures: #{failed_jobs}"
-    github_state = GITHUB_COMMIT_STATE.FAILURE
 
   # maximum description is 140 characters (this is not explicitly documented,
   # but the API error and tell you the max if you exceed it
   status_description = status_description[...140]
 
+  jenkins_host = new URL(build.full_url).origin
   target_url = "#{jenkins_host}/job/#{root_job_name}/#{root_build_number}"
 
   git_branch = build.parameters.GIT_BRANCH
@@ -436,9 +430,12 @@ module.exports = (robot) ->
     handle_command_ci_workers(msg)
 
   robot.router.post JENKINS_NOTIFICATION_ENDPOINT, (req, res) ->
-    message = req.body
-    if message.build.phase is JENKINS_BUILD_PHASE.COMPLETED
-      jenkins_job_completed(robot, message.name, message.build)
+    build = req.body.build
+    build_id = build.parameters.ROOT_JOB_UUID
+    job_name = req.body.name
+    console.log "jenkins_job: #{job_name} #{build.phase} #{build.status} #{build_id}"
+    if build.phase is JENKINS_BUILD_PHASE.COMPLETED
+      jenkins_job_completed(robot, job_name, build, build_id)
     res.end "ok"
 
   robot.router.post JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT, (req, res) ->
