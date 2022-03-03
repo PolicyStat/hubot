@@ -61,7 +61,7 @@ JENKINS_BUILD_PHASE = {
   'COMPLETED': 'COMPLETED',
   'STARTED': 'STARTED',
 }
-GITHUB_REPO_STATUS = {
+GITHUB_COMMIT_STATE = {
   'PENDING': 'pending',
   'FAILURE': 'failure',
   'SUCCESS': 'success',
@@ -292,7 +292,7 @@ jenkins_job_completed = (robot, job_name, build) ->
   root_job_name = cache_get(robot, build_id, BUILD_DATA.ROOT_JOB_NAME)
   root_build_number = cache_get(robot, build_id, BUILD_DATA.ROOT_BUILD_NUMBER)
 
-  failed_count = 0
+  failed_jobs = []
   passed_count = 0
   all_success = true
   for job_name in downstream_jobs
@@ -301,33 +301,38 @@ jenkins_job_completed = (robot, job_name, build) ->
       passed_count += 1
     else
       all_success = false
-      failed_count += 1
+      failed_jobs.push(job_name.replace('pstat_ticket_', ''))
 
+  failed_count = failed_jobs.length
   console.log "#{build_id} Passed:#{passed_count} Failed:#{failed_count}"
 
   if all_success
-    status_description = "#{passed_count} jobs completed successfully"
-    github_status = GITHUB_REPO_STATUS.SUCCESS
+    status_description = "Success: #{passed_count} passed"
+    github_state = GITHUB_COMMIT_STATE.SUCCESS
   else
-    status_description = "#{failed_count} jobs have failed (#{passed_count} completed successfully)"
-    github_status = GITHUB_REPO_STATUS.FAILURE
+    status_description = "#{failed_count} failed, #{passed_count} passed. Failures: #{failed_jobs}"
+    github_state = GITHUB_COMMIT_STATE.FAILURE
+
+  # maximum description is 140 characters (this is not explicitly documented,
+  # but the API error and tell you the max if you exceed it
+  status_description = status_description[...140]
 
   target_url = "#{jenkins_host}/job/#{root_job_name}/#{root_build_number}"
 
   git_branch = build.parameters.GIT_BRANCH
   commit_sha = build.parameters.GIT_COMMIT
-  console.log "#{build_id} updating github branch status: #{git_branch} #{commit_sha} #{github_status}"
+  console.log "#{build_id} update_github_commit_status(#{git_branch} #{commit_sha} #{github_state})"
   update_github_commit_status(
     commit_sha: commit_sha
-    status: github_status
+    state: github_state
     target_url: target_url
     description: status_description
   )
 
-update_github_commit_status = ({commit_sha, status, target_url, description}) ->
+update_github_commit_status = ({commit_sha, state, target_url, description}) ->
   repo = github.qualified_repo(HUBOT_GITHUB_REPO)
   data = (
-    state: status
+    state: state
     target_url: target_url
     description: description
   )
