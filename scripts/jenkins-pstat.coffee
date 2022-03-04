@@ -339,6 +339,7 @@ module.exports = (robot) ->
     commit_sha = build.parameters.GIT_COMMIT
 
     console.log "#{job_name} #{build_id} #{build.phase} #{build.status} #{commit_sha}"
+    console.log "#{build.test_summary}"
 
     if build.status is JENKINS_BUILD_STATUS.SUCCESS
       github_state = GITHUB_COMMIT_STATE.SUCCESS
@@ -346,7 +347,7 @@ module.exports = (robot) ->
       github_state = GITHUB_COMMIT_STATE.FAILURE
 
     update_github_commit_status(
-      context: job_name,
+      context: job_name
       commit_sha: commit_sha
       state: github_state
       target_url: build.full_url
@@ -356,20 +357,41 @@ module.exports = (robot) ->
     res.end "ok"
 
   robot.router.post JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT, (req, res) ->
+    num_workers = 170
     build = req.body.build
-    build_id = build.notes or build.number # build.notes has UUID, if set
+
+    if build.notes == '' or build.notes == '${ROOT_JOB_UUID}'
+      build_id = build.number
+    else
+      build_id = build.notes  # noets should have UUID
+
     job_name = req.body.name
     full_url = build.full_url
-    git_branch = build.parameters.GIT_BRANCH
-    slack_room = robot.brain.get(git_branch)
-    jenkins_host = new URL(build.full_url).origin
+    jenkins_host = new URL(full_url).origin
     worker_image = build.parameters.WORKER_IMAGE or GCE_DISK_SOURCE_IMAGE
     worker_label = build.parameters.WORKER_LABEL or JENKINS_AGENT_LABEL
-    num_workers = 170
+    commit_sha = build.scm.commit
+    git_branch = build.scm.branch
+    slack_room = robot.brain.get(git_branch)
 
     console.log "#{job_name} #{git_branch} #{build_id} #{jenkins_host} #{build.phase} #{build.status}"
-    console.log(req.body)
-    console.log(req.body.build)
+    console.log "#{build.test_summary}"
+    console.log "----------------"
+    console.log req.body
+    console.log "----------------"
+
+    if build.status is JENKINS_BUILD_STATUS.SUCCESS
+      github_state = GITHUB_COMMIT_STATE.SUCCESS
+    else
+      github_state = GITHUB_COMMIT_STATE.FAILURE
+
+    update_github_commit_status(
+      context: job_name
+      commit_sha: commit_sha
+      state: github_state
+      target_url: build.full_url
+      description: ""
+    )
 
     if build.phase is JENKINS_BUILD_PHASE.STARTED
       if slack_room
