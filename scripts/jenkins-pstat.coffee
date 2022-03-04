@@ -347,7 +347,8 @@ module.exports = (robot) ->
       github_state = GITHUB_COMMIT_STATE.PENDING
     else if build.phase is JENKINS_BUILD_PHASE.COMPLETED
       tests = build.test_summary
-      description = "Total:#{tests.total} Skipped:#{tests.skipped} Passed:#{tests.passed} Failed:#{tests.failed}"
+      if tests
+        description = "Total:#{tests.total} Skipped:#{tests.skipped} Passed:#{tests.passed} Failed:#{tests.failed}"
       if build.status is JENKINS_BUILD_STATUS.SUCCESS
         github_state = GITHUB_COMMIT_STATE.SUCCESS
       else
