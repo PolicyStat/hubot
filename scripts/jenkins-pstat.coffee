@@ -225,107 +225,10 @@ _createWorkersInZone = ({workerIndexes, zoneName, timestamp, image, label, jenki
         console.log "VM creation call succeeded for: #{vm.name} with #{operation.name}"
     i++
 
-
-cache_set = (robot, namespace, key, value) ->
-  robot.brain.set("#{namespace}-#{key}", value)
-
-cache_get = (robot, namespace, key) ->
-  return robot.brain.get("#{namespace}-#{key}")
-
-jenkins_root_job_completed_successfully = (robot, job_name, build) ->
-  console.log "jenkins_root_job_completed_successfully(#{job_name})"
-  git_branch = build.parameters.GIT_BRANCH
-  jenkins_host = new URL(build.full_url).origin
-
-  # build.notes has UUID, if set
-  build_id = build.notes or build.number
-  worker_image = build.parameters.WORKER_IMAGE or GCE_DISK_SOURCE_IMAGE
-  worker_label = build.parameters.WORKER_LABEL or JENKINS_AGENT_LABEL
-
-  console.log "branch:#{git_branch} id:#{build_id} jenkins:#{jenkins_host}"
-
-  url = "#{jenkins_host}/job/#{job_name}/api/json?tree=downstreamProjects[name]"
-  req = robot.http(url)
-
-  if HUBOT_JENKINS_AUTH
-    auth = new Buffer(HUBOT_JENKINS_AUTH).toString('base64')
-    req.headers Authorization: "Basic #{auth}"
-
-  req.get() (err, res, body) ->
-    if err
-      console.log "Failed to get #{url}: #{err}"
-    else if res.statusCode != 200
-      console.log "Failed to get #{url}: #{res.statusCode}"
-    else if res.statusCode == 200
-      json = JSON.parse(body)
-      cache_set(robot, build_id, BUILD_DATA.ROOT_JOB_NAME, job_name)
-      cache_set(robot, build_id, BUILD_DATA.ROOT_BUILD_NUMBER, build.number)
-
-      # Initialize all the downstream jobs to FAILURE
-      downstream_jobs = []
-      for downstream_job in json.downstreamProjects
-        downstream_jobs.push(downstream_job.name)
-        cache_set(robot, build_id, downstream_job.name, JENKINS_BUILD_STATUS.FAILURE)
-
-      console.log "#{build_id} #{downstream_jobs}"
-      cache_set(robot, build_id, BUILD_DATA.JOBS, downstream_jobs)
-
-      num_workers = json.downstreamProjects.length
-
-      jenkins_launch_workers(
-        num_workers: num_workers
-        force: false
-        image: worker_image
-        label: worker_label
-        jenkins_url: jenkins_host
-      )
-
-jenkins_job_completed = (robot, job_name, build, build_id) ->
-  cache_set(robot, build_id, job_name, build.status)
-
-  downstream_jobs = cache_get(robot, build_id, BUILD_DATA.JOBS)
-  root_job_name = cache_get(robot, build_id, BUILD_DATA.ROOT_JOB_NAME)
-  root_build_number = cache_get(robot, build_id, BUILD_DATA.ROOT_BUILD_NUMBER)
-
-  failed_jobs = []
-  passed_count = 0
-  all_success = true
-  for job_name in downstream_jobs
-    job_status = cache_get(robot, build_id, job_name)
-    if job_status == JENKINS_BUILD_STATUS.SUCCESS
-      passed_count += 1
-    else
-      all_success = false
-      failed_jobs.push(job_name.replace('pstat_ticket_', ''))
-
-  failed_count = failed_jobs.length
-  console.log "#{build_id} Passed:#{passed_count} Failed:#{failed_count}"
-
-  status_description = "#{passed_count} passed. #{failed_count} failed: #{failed_jobs.join(' ')}"
-  github_state = GITHUB_COMMIT_STATE.FAILURE
-  if all_success
-    github_state = GITHUB_COMMIT_STATE.SUCCESS
-
-  # maximum description is 140 characters (this is not explicitly documented,
-  # but the API error and tell you the max if you exceed it
-  status_description = status_description[...140]
-
-  jenkins_host = new URL(build.full_url).origin
-  target_url = "#{jenkins_host}/job/#{root_job_name}/#{root_build_number}"
-
-  git_branch = build.parameters.GIT_BRANCH
-  commit_sha = build.parameters.GIT_COMMIT
-  console.log "#{build_id} update_github_commit_status(#{git_branch} #{commit_sha} #{github_state})"
-  update_github_commit_status(
-    commit_sha: commit_sha
-    state: github_state
-    target_url: target_url
-    description: status_description
-  )
-
-update_github_commit_status = ({commit_sha, state, target_url, description}) ->
+update_github_commit_status = ({context, commit_sha, state, target_url, description}) ->
   repo = github.qualified_repo(HUBOT_GITHUB_REPO)
   data = (
+    context: context
     state: state
     target_url: target_url
     description: description
@@ -433,26 +336,55 @@ module.exports = (robot) ->
     build = req.body.build
     build_id = build.parameters.ROOT_JOB_UUID
     job_name = req.body.name
-    console.log "jenkins_job: #{job_name} #{build.phase} #{build.status} #{build_id}"
-    if build.phase is JENKINS_BUILD_PHASE.COMPLETED
-      jenkins_job_completed(robot, job_name, build, build_id)
+    commit_sha = build.parameters.GIT_COMMIT
+
+    console.log "#{job_name} #{build_id} #{build.phase} #{build.status} #{commit_sha}"
+
+    if build.status is JENKINS_BUILD_STATUS.SUCCESS
+      github_state = GITHUB_COMMIT_STATE.SUCCESS
+    else
+      github_state = GITHUB_COMMIT_STATE.FAILURE
+
+    update_github_commit_status(
+      context: job_name,
+      commit_sha: commit_sha
+      state: github_state
+      target_url: build.full_url
+      description: ""
+    )
+
     res.end "ok"
 
   robot.router.post JENKINS_ROOT_JOB_NOTIFICATION_ENDPOINT, (req, res) ->
-    jenkins_job = req.body
-    jenkins_build = jenkins_job.build
-    root_job_name = jenkins_job.name
-    full_url = jenkins_build.full_url
-    git_branch = jenkins_build.parameters.GIT_BRANCH
+    build = req.body.build
+    build_id = build.notes or build.number # build.notes has UUID, if set
+    job_name = req.body.name
+    full_url = build.full_url
+    git_branch = build.parameters.GIT_BRANCH
     slack_room = robot.brain.get(git_branch)
+    jenkins_host = new URL(build.full_url).origin
+    worker_image = build.parameters.WORKER_IMAGE or GCE_DISK_SOURCE_IMAGE
+    worker_label = build.parameters.WORKER_LABEL or JENKINS_AGENT_LABEL
+    num_workers = 170
 
-    if jenkins_job.build.phase is JENKINS_BUILD_PHASE.STARTED
-      if slack_room
-        robot.messageRoom(slack_room, "<#{full_url}|#{root_job_name}/#{git_branch}>: Started")
+    console.log "#{job_name} #{git_branch} #{build_id} #{jenkins_host} #{build.phase} #{build.status}"
+    console.log(req.body)
+    console.log(req.body.build)
 
-    else if jenkins_build.phase is JENKINS_BUILD_PHASE.COMPLETED and jenkins_build.status is JENKINS_BUILD_STATUS.SUCCESS
+    if build.phase is JENKINS_BUILD_PHASE.STARTED
       if slack_room
-        robot.messageRoom(slack_room, "<#{full_url}|#{root_job_name}/#{git_branch}>: Completed Successfully :confetti_ball:")
-      jenkins_root_job_completed_successfully(robot, jenkins_job.name, jenkins_build)
+        robot.messageRoom(slack_room, "<#{full_url}|#{job_name}/#{git_branch}>: Started")
+
+    else if build.phase is JENKINS_BUILD_PHASE.COMPLETED and build.status is JENKINS_BUILD_STATUS.SUCCESS
+      if slack_room
+        robot.messageRoom(slack_room, "<#{full_url}|#{job_name}/#{git_branch}>: Completed Successfully :confetti_ball:")
+
+      jenkins_launch_workers(
+        num_workers: num_workers
+        force: false
+        image: worker_image
+        label: worker_label
+        jenkins_url: jenkins_host
+      )
 
     res.end "ok"
