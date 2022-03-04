@@ -364,7 +364,7 @@ module.exports = (robot) ->
     if build.notes == '' or build.notes == '${ROOT_JOB_UUID}'
       build_id = build.number
     else
-      build_id = build.notes  # noets should have UUID
+      build_id = build.notes  # notes should have UUID
 
     job_name = req.body.name
     full_url = build.full_url
@@ -377,12 +377,27 @@ module.exports = (robot) ->
 
     console.log "#{job_name} #{git_branch} #{commit_sha} #{build_id} #{jenkins_host} #{build.phase} #{build.status}"
 
-    if build.status is JENKINS_BUILD_STATUS.SUCCESS
-      github_state = GITHUB_COMMIT_STATE.SUCCESS
-    else
+    slack_message = null
+
+    if build.phase is JENKINS_BUILD_PHASE.STARTED
+      slack_message = "Started"
+
+    else if build.phase is JENKINS_BUILD_PHASE.COMPLETED
+      slack_message = "Failure"
       github_state = GITHUB_COMMIT_STATE.FAILURE
 
-    if commit_sha
+      if build.status is JENKINS_BUILD_STATUS.SUCCESS
+        slack_message = "Completed Successfully :confetti_ball:"
+        github_state = GITHUB_COMMIT_STATE.SUCCESS
+
+        jenkins_launch_workers(
+          num_workers: num_workers
+          force: false
+          image: worker_image
+          label: worker_label
+          jenkins_url: jenkins_host
+        )
+
       update_github_commit_status(
         context: job_name
         commit_sha: commit_sha
@@ -391,20 +406,9 @@ module.exports = (robot) ->
         description: ""
       )
 
-    if build.phase is JENKINS_BUILD_PHASE.STARTED
-      if slack_room
-        robot.messageRoom(slack_room, "<#{full_url}|#{job_name}/#{git_branch}>: Started")
+    if slack_room and slack_message
+      robot.messageRoom(slack_room, "<#{full_url}|#{job_name}/#{git_branch}>: #{slack_message}")
 
-    else if build.phase is JENKINS_BUILD_PHASE.COMPLETED and build.status is JENKINS_BUILD_STATUS.SUCCESS
-      if slack_room
-        robot.messageRoom(slack_room, "<#{full_url}|#{job_name}/#{git_branch}>: Completed Successfully :confetti_ball:")
 
-      jenkins_launch_workers(
-        num_workers: num_workers
-        force: false
-        image: worker_image
-        label: worker_label
-        jenkins_url: jenkins_host
-      )
 
     res.end "ok"
