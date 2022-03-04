@@ -339,20 +339,20 @@ module.exports = (robot) ->
     commit_sha = build.parameters.GIT_COMMIT
 
     console.log "#{job_name} #{build_id} #{build.phase} #{build.status} #{commit_sha}"
-    console.log "#{build.test_summary}"
+    console.log build.test_summary
 
     if build.status is JENKINS_BUILD_STATUS.SUCCESS
       github_state = GITHUB_COMMIT_STATE.SUCCESS
     else
       github_state = GITHUB_COMMIT_STATE.FAILURE
 
-    update_github_commit_status(
-      context: job_name
-      commit_sha: commit_sha
-      state: github_state
-      target_url: build.full_url
-      description: ""
-    )
+    # update_github_commit_status(
+    #   context: job_name
+    #   commit_sha: commit_sha
+    #   state: github_state
+    #   target_url: build.full_url
+    #   description: ""
+    # )
 
     res.end "ok"
 
@@ -375,10 +375,9 @@ module.exports = (robot) ->
     slack_room = robot.brain.get(git_branch)
 
     console.log "#{job_name} #{git_branch} #{build_id} #{jenkins_host} #{build.phase} #{build.status}"
-    console.log "#{build.test_summary}"
-    console.log "----------------"
-    console.log req.body
-    console.log "----------------"
+    # console.log "----------------"
+    # console.log req.body
+    # console.log "----------------"
 
     if build.status is JENKINS_BUILD_STATUS.SUCCESS
       github_state = GITHUB_COMMIT_STATE.SUCCESS
