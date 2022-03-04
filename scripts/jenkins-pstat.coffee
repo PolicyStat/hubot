@@ -45,13 +45,6 @@ GCE_MACHINE_TYPE = process.env.GCE_MACHINE_TYPE or 'n1-highcpu-2'
 GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL = process.env.GCE_COMPUTE_ENGINE_SERVICE_ACCOUNT_EMAIL or ''
 DISK_TYPE_TPL = 'zones/%s/diskTypes/pd-ssd'
 
-BUILD_DATA = {
-  'COMMIT_SHA': 'commit_SHA',
-  'GIT_BRANCH': 'git_branch',
-  'ROOT_JOB_NAME': 'root_job_name',
-  'ROOT_BUILD_NUMBER': 'root_build_number',
-  'JOBS': 'jobs',
-}
 JENKINS_BUILD_STATUS = {
   'FAILURE': 'FAILURE',
   'SUCCESS': 'SUCCESS',
@@ -338,9 +331,6 @@ module.exports = (robot) ->
     build_id = build.parameters.ROOT_JOB_UUID
     commit_sha = build.parameters.GIT_COMMIT
 
-    console.log "#{job_name} #{build_id} #{build.phase} #{build.status} #{commit_sha}"
-    console.log build.test_summary
-
     github_state = null
     description = ""
     if build.phase is JENKINS_BUILD_PHASE.STARTED
@@ -355,6 +345,8 @@ module.exports = (robot) ->
         github_state = GITHUB_COMMIT_STATE.FAILURE
 
     if github_state
+      console.log "#{job_name} #{build_id} #{build.phase} #{build.status} #{commit_sha}"
+
       update_github_commit_status(
         context: job_name
         commit_sha: commit_sha
