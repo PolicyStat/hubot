@@ -375,20 +375,21 @@ module.exports = (robot) ->
     git_branch = build.scm.branch
     slack_room = robot.brain.get(git_branch)
 
-    console.log "#{job_name} #{git_branch} #{build_id} #{jenkins_host} #{build.phase} #{build.status}"
+    console.log "#{job_name} #{git_branch} #{commit_sha} #{build_id} #{jenkins_host} #{build.phase} #{build.status}"
 
     if build.status is JENKINS_BUILD_STATUS.SUCCESS
       github_state = GITHUB_COMMIT_STATE.SUCCESS
     else
       github_state = GITHUB_COMMIT_STATE.FAILURE
 
-    update_github_commit_status(
-      context: job_name
-      commit_sha: commit_sha
-      state: github_state
-      target_url: build.full_url
-      description: ""
-    )
+    if commit_sha
+      update_github_commit_status(
+        context: job_name
+        commit_sha: commit_sha
+        state: github_state
+        target_url: build.full_url
+        description: ""
+      )
 
     if build.phase is JENKINS_BUILD_PHASE.STARTED
       if slack_room
